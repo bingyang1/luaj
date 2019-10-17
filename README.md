@@ -6,7 +6,7 @@ debug.setchecktype(t)
 t可取值: 0 不检查,1 检查全局变量, 2检查局部变量, 4 检查表值, 7 检查全部.
 
 #### ** 可省略非必要关键字 **
-- 省略thne
+- 省略then
 `if a then
 end
 -->
