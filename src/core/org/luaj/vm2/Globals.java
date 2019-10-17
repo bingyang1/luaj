@@ -182,6 +182,7 @@ public class Globals extends LuaTable {
 		try {
 			return load(finder.findResource(filename), "@"+filename, "bt", this);
 		} catch (Exception e) {
+			e.printStackTrace();
 			return error("load "+filename+": "+e);
 		}
 	}
@@ -256,6 +257,7 @@ public class Globals extends LuaTable {
 		} catch (LuaError l) {
 			throw l;
 		} catch (Exception e) {
+			e.printStackTrace();
 			return error("load "+chunkname+": "+e);
 		}
 	}

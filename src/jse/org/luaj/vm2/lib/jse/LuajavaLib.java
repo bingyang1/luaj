@@ -31,44 +31,45 @@ import java.lang.reflect.Proxy;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.LuaError;
 import org.luaj.vm2.LuaTable;
+import org.luaj.vm2.LuaUserdata;
 import org.luaj.vm2.LuaValue;
 import org.luaj.vm2.Varargs;
 import org.luaj.vm2.compiler.LuaC;
 import org.luaj.vm2.lib.LibFunction;
 import org.luaj.vm2.lib.VarArgFunction;
 
-/**
- * Subclass of {@link LibFunction} which implements the features of the luajava package.
- * <p>
- * Luajava is an approach to mixing lua and java using simple functions that bind
- * java classes and methods to lua dynamically.  The API is documented on the
+/** 
+ * Subclass of {@link LibFunction} which implements the features of the luajava package. 
+ * <p> 
+ * Luajava is an approach to mixing lua and java using simple functions that bind 
+ * java classes and methods to lua dynamically.  The API is documented on the 
  * <a href="http://www.keplerproject.org/luajava/">luajava</a> documentation pages.
  * 
  * <p>
- * Typically, this library is included as part of a call to
+ * Typically, this library is included as part of a call to 
  * {@link org.luaj.vm2.lib.jse.JsePlatform#standardGlobals()}
  * <pre> {@code
  * Globals globals = JsePlatform.standardGlobals();
  * System.out.println( globals.get("luajava").get("bindClass").call( LuaValue.valueOf("java.lang.System") ).invokeMethod("currentTimeMillis") );
  * } </pre>
  * <p>
- * To instantiate and use it directly,
+ * To instantiate and use it directly, 
  * link it into your globals table via {@link Globals#load} using code such as:
  * <pre> {@code
  * Globals globals = new Globals();
  * globals.load(new JseBaseLib());
  * globals.load(new PackageLib());
  * globals.load(new LuajavaLib());
- * globals.load(
+ * globals.load( 
  *      "sys = luajava.bindClass('java.lang.System')\n"+
- *      "print ( sys:currentTimeMillis() )\n", "main.lua" ).call();
+ *      "print ( sys:currentTimeMillis() )\n", "main.lua" ).call(); 
  * } </pre>
  * <p>
  * 
- * The {@code luajava} library is available
+ * The {@code luajava} library is available 
  * on all JSE platforms via the call to {@link org.luaj.vm2.lib.jse.JsePlatform#standardGlobals()}
- * and the luajava api's are simply invoked from lua.
- * Because it makes extensive use of Java's reflection API, it is not available
+ * and the luajava api's are simply invoked from lua.  
+ * Because it makes extensive use of Java's reflection API, it is not available 
  * on JME, but can be used in Android applications.
  * <p>
  * This has been implemented to match as closely as possible the behavior in the corresponding library in C.
@@ -91,10 +92,10 @@ public class LuajavaLib extends VarArgFunction {
 	static final int LOADLIB		= 5;
 
 	static final String[] NAMES = {
-		"bindClass",
-		"newInstance",
-		"new",
-		"createProxy",
+		"bindClass", 
+		"newInstance", 
+		"new", 
+		"createProxy", 
 		"loadLib",
 	};
 	
@@ -112,7 +113,29 @@ public class LuajavaLib extends VarArgFunction {
 				LuaTable t = new LuaTable();
 				bind( t, this.getClass(), NAMES, BINDCLASS );
 				env.set("luajava", t);
-				if (!env.get("package").isnil()) env.get("package").get("loaded").set("luajava", t);
+				env.get("package").get("loaded").set("luajava", t);
+				env.set("byte", JavaClass.forClass(Byte.TYPE));
+				env.set("char", JavaClass.forClass(Character.TYPE));
+				env.set("short", JavaClass.forClass(Short.TYPE));
+				env.set("int", JavaClass.forClass(Integer.TYPE));
+				env.set("long", JavaClass.forClass(Long.TYPE));
+				env.set("float", JavaClass.forClass(Float.TYPE));
+				env.set("double", JavaClass.forClass(Double.TYPE));
+				env.set("import", new VarArgFunction() {
+					public Varargs invoke(Varargs args) {
+						try {
+							String cls = args.checkjstring(1);
+							String n = cls.replaceFirst(".*?[$\\.]([^$\\.]*)$", "$1");
+							Class clazz = classForName(cls);
+							JavaClass ls = JavaClass.forClass(clazz);
+							env.set(n,ls);
+							return ls;
+						} catch (ClassNotFoundException e) {
+							e.printStackTrace();
+							throw new LuaError(e);
+						}
+					}
+				});
 				return t;
 			}
 			case BINDCLASS: {
@@ -122,13 +145,13 @@ public class LuajavaLib extends VarArgFunction {
 			case NEWINSTANCE:
 			case NEW: {
 				// get constructor
-				final LuaValue c = args.checkvalue(1);
+				final LuaValue c = args.checkvalue(1); 
 				final Class clazz = (opcode==NEWINSTANCE? classForName(c.tojstring()): (Class) c.checkuserdata(Class.class));
 				final Varargs consargs = args.subargs(2);
 				return JavaClass.forClass(clazz).getConstructor().invoke(consargs);
 			}
 				
-			case CREATEPROXY: {
+			case CREATEPROXY: {				
 				final int niface = args.narg()-1;
 				if ( niface <= 0 )
 					throw new LuaError("no interfaces");
@@ -136,7 +159,7 @@ public class LuajavaLib extends VarArgFunction {
 				
 				// get the interfaces
 				final Class[] ifaces = new Class[niface];
-				for ( int i=0; i<niface; i++ )
+				for ( int i=0; i<niface; i++ ) 
 					ifaces[i] = classForName(args.checkjstring(i+1));
 				
 				// create the invocation handler
@@ -173,6 +196,19 @@ public class LuajavaLib extends VarArgFunction {
 		}
 	}
 
+	public static LuaUserdata createProxy(Class clazz, LuaValue lobj){
+		// get the interfaces
+		final Class[] ifaces = new Class[]{clazz};
+		// create the invocation handler
+		InvocationHandler handler = new ProxyInvocationHandler(lobj);
+
+		// create the proxy object
+		Object proxy = Proxy.newProxyInstance(clazz.getClassLoader(), ifaces, handler);
+
+		// return the proxy
+		return LuaValue.userdataOf( proxy );
+	}
+
 	// load classes using app loader to allow luaj to be used as an extension
 	protected Class classForName(String name) throws ClassNotFoundException {
 		return Class.forName(name, true, ClassLoader.getSystemClassLoader());
@@ -191,16 +227,16 @@ public class LuajavaLib extends VarArgFunction {
 			if ( func.isnil() )
 				return null;
 			boolean isvarargs = ((method.getModifiers() & METHOD_MODIFIERS_VARARGS) != 0);
-			int n = args!=null? args.length: 0;
+			int n = args!=null? args.length: 0; 
 			LuaValue[] v;
-			if ( isvarargs ) {
+			if ( isvarargs ) {								
 				Object o = args[--n];
 				int m = Array.getLength( o );
 				v = new LuaValue[n+m];
 				for ( int i=0; i<n; i++ )
 					v[i] = CoerceJavaToLua.coerce(args[i]);
 				for ( int i=0; i<m; i++ )
-					v[i+n] = CoerceJavaToLua.coerce(Array.get(o,i));
+					v[i+n] = CoerceJavaToLua.coerce(Array.get(o,i));								
 			} else {
 				v = new LuaValue[n];
 				for ( int i=0; i<n; i++ )

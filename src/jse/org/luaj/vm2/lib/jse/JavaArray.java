@@ -77,8 +77,8 @@ class JavaArray extends LuaUserdata {
 			int i = key.toint() - 1;
 			if ( i>=0 && i<Array.getLength(m_instance) )
 				Array.set(m_instance,i,CoerceLuaToJava.coerce(value, m_instance.getClass().getComponentType()));
-			else if ( m_metatable==null || ! settable(this,key,value) )
-					error("array index out of bounds");
+			else if ( m_metatable==null || metatag(NEWINDEX).isnil() && !settable(this,key,value) )
+			    error("array index out of bounds");
 		}
 		else
 			super.set(key, value);

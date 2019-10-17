@@ -134,6 +134,7 @@ public class DebugLib extends TwoArgFunction {
 		debug.set("traceback", new traceback());
 		debug.set("upvalueid", new upvalueid());
 		debug.set("upvaluejoin", new upvaluejoin());
+		debug.set("setchecktype", new setchecktype());
 		env.set("debug", debug);
 		if (!env.get("package").isnil()) env.get("package").get("loaded").set("debug", debug);
 		return debug;
@@ -753,7 +754,16 @@ public class DebugLib extends TwoArgFunction {
 		    case Lua.OP_SETTABUP:
 		    case Lua.OP_SETTABLE: tm = LuaValue.NEWINDEX; break;
 		    case Lua.OP_EQ: tm = LuaValue.EQ; break;
-		    case Lua.OP_ADD: tm = LuaValue.ADD; break;
+
+			case Lua.OP_IDIV: tm = LuaValue.IDIV; break;
+			case Lua.OP_BAND: tm = LuaValue.BAND; break;
+			case Lua.OP_BOR: tm = LuaValue.BOR; break;
+			case Lua.OP_BXOR: tm = LuaValue.BXOR; break;
+			case Lua.OP_SHL: tm = LuaValue.SHL; break;
+			case Lua.OP_SHR: tm = LuaValue.SHR; break;
+			case Lua.OP_BNOT: tm = LuaValue.BNOT; break;
+
+			case Lua.OP_ADD: tm = LuaValue.ADD; break;
 		    case Lua.OP_SUB: tm = LuaValue.SUB; break;
 		    case Lua.OP_MUL: tm = LuaValue.MUL; break;
 		    case Lua.OP_DIV: tm = LuaValue.DIV; break;
@@ -891,5 +901,13 @@ public class DebugLib extends TwoArgFunction {
 	    }
 	  }
 	  return setreg;
+	}
+
+	static final class setchecktype extends OneArgFunction {
+		@Override
+		public LuaValue call(LuaValue arg) {
+			LuaClosure.setCheckType(arg.checkint());
+			return LuaValue.NONE;
+		}
 	}
 }

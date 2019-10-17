@@ -75,7 +75,7 @@ public class LuaDouble extends LuaNumber {
 	final double v;
 
 	public static LuaNumber valueOf(double d) {
-		int id = (int) d;
+		long id = (long) d;
 		return d==id? (LuaNumber) LuaInteger.valueOf(id): (LuaNumber) new LuaDouble(d);
 	}
 	
@@ -121,33 +121,54 @@ public class LuaDouble extends LuaNumber {
 	// equality w/o metatable processing
 	public boolean raweq( LuaValue val )      { return val.raweq(v); }
 	public boolean raweq( double val )        { return v == val; }
-	public boolean raweq( int val )           { return v == val; }
+	public boolean raweq( long val )           { return v == val; }
 	
 	// basic binary arithmetic
 	public LuaValue   add( LuaValue rhs )        { return rhs.add(v); }
 	public LuaValue   add( double lhs )     { return LuaDouble.valueOf(lhs + v); }
 	public LuaValue   sub( LuaValue rhs )        { return rhs.subFrom(v); }
 	public LuaValue   sub( double rhs )        { return LuaDouble.valueOf(v - rhs); }
-	public LuaValue   sub( int rhs )        { return LuaDouble.valueOf(v - rhs); }
+	public LuaValue   sub( long rhs )        { return LuaDouble.valueOf(v - rhs); }
 	public LuaValue   subFrom( double lhs )   { return LuaDouble.valueOf(lhs - v); }
 	public LuaValue   mul( LuaValue rhs )        { return rhs.mul(v); }
 	public LuaValue   mul( double lhs )   { return LuaDouble.valueOf(lhs * v); }
-	public LuaValue   mul( int lhs )      { return LuaDouble.valueOf(lhs * v); }
+	public LuaValue   mul( long lhs )      { return LuaDouble.valueOf(lhs * v); }
 	public LuaValue   pow( LuaValue rhs )        { return rhs.powWith(v); }
 	public LuaValue   pow( double rhs )        { return MathLib.dpow(v,rhs); }
-	public LuaValue   pow( int rhs )        { return MathLib.dpow(v,rhs); }
+	public LuaValue   pow( long rhs )        { return MathLib.dpow(v,rhs); }
 	public LuaValue   powWith( double lhs )   { return MathLib.dpow(lhs,v); }
-	public LuaValue   powWith( int lhs )      { return MathLib.dpow(lhs,v); }
+	public LuaValue   powWith( long lhs )      { return MathLib.dpow(lhs,v); }
 	public LuaValue   div( LuaValue rhs )        { return rhs.divInto(v); }
 	public LuaValue   div( double rhs )        { return LuaDouble.ddiv(v,rhs); }
-	public LuaValue   div( int rhs )        { return LuaDouble.ddiv(v,rhs); }
+	public LuaValue   div( long rhs )        { return LuaDouble.ddiv(v,rhs); }
 	public LuaValue   divInto( double lhs )   { return LuaDouble.ddiv(lhs,v); }
 	public LuaValue   mod( LuaValue rhs )        { return rhs.modFrom(v); }
 	public LuaValue   mod( double rhs )        { return LuaDouble.dmod(v,rhs); }
-	public LuaValue   mod( int rhs )        { return LuaDouble.dmod(v,rhs); }
+	public LuaValue   mod( long rhs )        { return LuaDouble.dmod(v,rhs); }
 	public LuaValue   modFrom( double lhs )   { return LuaDouble.dmod(lhs,v); }
-	
-	
+
+
+	public LuaValue   idiv( LuaValue rhs )        { return rhs.idiv((long) v); }
+	public LuaValue   idiv( long lhs )     { return LuaInteger.valueOf(lhs / v); }
+
+	public LuaValue   band( LuaValue rhs )        { return rhs.band((long) v); }
+	public LuaValue   band( long lhs )     { return LuaInteger.valueOf(lhs & (long)v); }
+
+	public LuaValue   bor( LuaValue rhs )        { return rhs.bor((long)v); }
+	public LuaValue   bor( long lhs )     { return LuaInteger.valueOf(lhs | (long)v); }
+
+	public LuaValue   bxor( LuaValue rhs )        { return rhs.bxor((long)v); }
+	public LuaValue   bxor( long lhs )     { return LuaInteger.valueOf(lhs ^ (long)v); }
+
+	public LuaValue   shl( LuaValue rhs )        { return rhs.shl((long)v); }
+	public LuaValue   shl( long lhs )     { return LuaInteger.valueOf(lhs << (long)v); }
+
+	public LuaValue   shr( LuaValue rhs )        { return rhs.shr((long)v); }
+	public LuaValue   shr( long lhs )     { return LuaInteger.valueOf(lhs >> (long)v); }
+
+	public LuaValue   bnot()     { return LuaInteger.valueOf( ~(long)v); }
+
+
 	/** Divide two double numbers according to lua math, and return a {@link LuaValue} result.
 	 * @param lhs Left-hand-side of the division.
 	 * @param rhs Right-hand-side of the division.
@@ -177,14 +198,7 @@ public class LuaDouble extends LuaNumber {
 	 * @see #dmod_d(double, double) 
 	 */
 	public static LuaValue dmod(double lhs, double rhs) {
-		if (rhs == 0 || lhs == Double.POSITIVE_INFINITY || lhs == Double.NEGATIVE_INFINITY) return NAN;
-		if (rhs == Double.POSITIVE_INFINITY) {
-			return lhs < 0 ? POSINF : valueOf(lhs);
-		}
-		if (rhs == Double.NEGATIVE_INFINITY) {
-			return lhs > 0 ? NEGINF : valueOf(lhs);
-		}
-		return valueOf( lhs-rhs*Math.floor(lhs/rhs) );
+		return rhs!=0? valueOf( lhs-rhs*Math.floor(lhs/rhs) ): NAN;
 	}
 
 	/** Take modulo for double numbers according to lua math, and return a double result.
@@ -195,40 +209,33 @@ public class LuaDouble extends LuaNumber {
 	 * @see #dmod(double, double)
 	 */
 	public static double dmod_d(double lhs, double rhs) {
-		if (rhs == 0 || lhs == Double.POSITIVE_INFINITY || lhs == Double.NEGATIVE_INFINITY) return Double.NaN;
-		if (rhs == Double.POSITIVE_INFINITY) {
-			return lhs < 0 ? Double.POSITIVE_INFINITY : lhs;
-		}
-		if (rhs == Double.NEGATIVE_INFINITY) {
-			return lhs > 0 ? Double.NEGATIVE_INFINITY : lhs;
-		}
-		return lhs-rhs*Math.floor(lhs/rhs);
+		return rhs!=0? lhs-rhs*Math.floor(lhs/rhs): Double.NaN;
 	}
 
 	// relational operators
 	public LuaValue   lt( LuaValue rhs )         { return rhs.gt_b(v)? LuaValue.TRUE: FALSE; }
 	public LuaValue   lt( double rhs )      { return v < rhs? TRUE: FALSE; }
-	public LuaValue   lt( int rhs )         { return v < rhs? TRUE: FALSE; }
+	public LuaValue   lt( long rhs )         { return v < rhs? TRUE: FALSE; }
 	public boolean lt_b( LuaValue rhs )       { return rhs.gt_b(v); }
-	public boolean lt_b( int rhs )         { return v < rhs; }
+	public boolean lt_b( long rhs )         { return v < rhs; }
 	public boolean lt_b( double rhs )      { return v < rhs; }
 	public LuaValue   lteq( LuaValue rhs )       { return rhs.gteq_b(v)? LuaValue.TRUE: FALSE; }
 	public LuaValue   lteq( double rhs )    { return v <= rhs? TRUE: FALSE; }
-	public LuaValue   lteq( int rhs )       { return v <= rhs? TRUE: FALSE; }
+	public LuaValue   lteq( long rhs )       { return v <= rhs? TRUE: FALSE; }
 	public boolean lteq_b( LuaValue rhs )     { return rhs.gteq_b(v); }
-	public boolean lteq_b( int rhs )       { return v <= rhs; }
+	public boolean lteq_b( long rhs )       { return v <= rhs; }
 	public boolean lteq_b( double rhs )    { return v <= rhs; }
 	public LuaValue   gt( LuaValue rhs )         { return rhs.lt_b(v)? LuaValue.TRUE: FALSE; }
 	public LuaValue   gt( double rhs )      { return v > rhs? TRUE: FALSE; }
-	public LuaValue   gt( int rhs )         { return v > rhs? TRUE: FALSE; }
+	public LuaValue   gt( long rhs )         { return v > rhs? TRUE: FALSE; }
 	public boolean gt_b( LuaValue rhs )       { return rhs.lt_b(v); }
-	public boolean gt_b( int rhs )         { return v > rhs; }
+	public boolean gt_b( long rhs )         { return v > rhs; }
 	public boolean gt_b( double rhs )      { return v > rhs; }
 	public LuaValue   gteq( LuaValue rhs )       { return rhs.lteq_b(v)? LuaValue.TRUE: FALSE; }
 	public LuaValue   gteq( double rhs )    { return v >= rhs? TRUE: FALSE; }
-	public LuaValue   gteq( int rhs )       { return v >= rhs? TRUE: FALSE; }
+	public LuaValue   gteq( long rhs )       { return v >= rhs? TRUE: FALSE; }
 	public boolean gteq_b( LuaValue rhs )     { return rhs.lteq_b(v); }
-	public boolean gteq_b( int rhs )       { return v >= rhs; }
+	public boolean gteq_b( long rhs )       { return v >= rhs; }
 	public boolean gteq_b( double rhs )    { return v >= rhs; }
 	
 	// string comparison

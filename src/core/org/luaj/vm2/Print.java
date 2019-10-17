@@ -128,10 +128,6 @@ public class Print extends Lua {
 	}
 
 	static void printValue( PrintStream ps, LuaValue v ) {
-		if (v == null) {
-			ps.print("null");
-			return;
-		}
 		switch ( v.type() ) {
 		case LuaValue.TSTRING: printString( ps, (LuaString) v ); break;
 		default: ps.print( v.tojstring() );
@@ -140,7 +136,7 @@ public class Print extends Lua {
 	}
 	
 	static void printConstant(PrintStream ps, Prototype f, int i) {
-		printValue( ps, i < f.k.length ? f.k[i] : LuaValue.valueOf("UNKNOWN_CONST_" + i) );
+		printValue( ps, f.k[i] );
 	}
 
 	static void printUpvalue(PrintStream ps, Upvaldesc u) {
@@ -156,7 +152,7 @@ public class Print extends Lua {
 		int[] code = f.code;
 		int pc, n = code.length;
 		for (pc = 0; pc < n; pc++) {
-			pc = printOpCode(f, pc);
+			printOpCode(f, pc);
 			ps.println();
 		}
 	}
@@ -165,10 +161,9 @@ public class Print extends Lua {
 	 * Print an opcode in a prototype
 	 * @param f the {@link Prototype}
 	 * @param pc the program counter to look up and print
-	 * @return pc same as above or changed
 	 */
-	public static int printOpCode(Prototype f, int pc) {
-		return printOpCode(ps,f,pc);
+	public static void printOpCode(Prototype f, int pc) {
+		printOpCode(ps,f,pc);
 	}
 	
 	/** 
@@ -176,9 +171,8 @@ public class Print extends Lua {
 	 * @param ps the {@link PrintStream} to print to
 	 * @param f the {@link Prototype}
 	 * @param pc the program counter to look up and print
-	 * @return pc same as above or changed
 	 */
-	public static int printOpCode(PrintStream ps, Prototype f, int pc) {
+	public static void printOpCode(PrintStream ps, Prototype f, int pc) {
 		int[] code = f.code;
 		int i = code[pc];
 		int o = GET_OPCODE(i);
@@ -193,67 +187,87 @@ public class Print extends Lua {
 			ps.print("[" + line + "]  ");
 		else
 			ps.print("[-]  ");
-		if (o >= OPNAMES.length - 1) {
-			ps.print("UNKNOWN_OP_" + o + "  ");
-		} else {
-			ps.print(OPNAMES[o] + "  ");
-			switch (getOpMode(o)) {
-			case iABC:
-				ps.print( a );
-				if (getBMode(o) != OpArgN)
-					ps.print(" "+(ISK(b) ? (-1 - INDEXK(b)) : b));
-				if (getCMode(o) != OpArgN)
-					ps.print(" "+(ISK(c) ? (-1 - INDEXK(c)) : c));
-				break;
-			case iABx:
-				if (getBMode(o) == OpArgK) {
-					ps.print(a + " " + (-1 - bx));
-				} else {
-					ps.print(a + " " + (bx));
-				}
-				break;
-			case iAsBx:
-				if (o == OP_JMP)
-					ps.print( sbx );
-				else
-					ps.print(a + " " + sbx);
-				break;
+		ps.print(OPNAMES[o] + "  ");
+		switch (getOpMode(o)) {
+		case iABC:
+			ps.print( a );
+			if (getBMode(o) != OpArgN)
+				ps.print(" "+(ISK(b) ? (-1 - INDEXK(b)) : b));
+			if (getCMode(o) != OpArgN)
+				ps.print(" "+(ISK(c) ? (-1 - INDEXK(c)) : c));
+			break;
+		case iABx:
+			if (getBMode(o) == OpArgK) {
+				ps.print(a + " " + (-1 - bx));
+			} else {
+				ps.print(a + " " + (bx));
 			}
-			switch (o) {
-			case OP_LOADK:
+			break;
+		case iAsBx:
+			if (o == OP_JMP)
+				ps.print( sbx );
+			else
+				ps.print(a + " " + sbx);
+			break;
+		}
+		switch (o) {
+		case OP_LOADK:
+			ps.print("  ; ");
+			printConstant(ps, f, bx);
+			break;
+		case OP_GETUPVAL:
+		case OP_SETUPVAL:
+			ps.print("  ; ");
+			printUpvalue(ps, f.upvalues[b]);
+			break;
+		case OP_GETTABUP:
+			ps.print("  ; ");
+			printUpvalue(ps, f.upvalues[b]);
+			ps.print(" ");
+			if (ISK(c))
+				printConstant(ps, f, INDEXK(c));
+			else
+				ps.print("-");
+			break;
+		case OP_SETTABUP:
+			ps.print("  ; ");
+			printUpvalue(ps, f.upvalues[a]);
+			ps.print(" ");
+			if (ISK(b))
+				printConstant(ps, f, INDEXK(b));
+			else
+				ps.print("-");
+			ps.print(" ");
+			if (ISK(c))
+				printConstant(ps, f, INDEXK(c));
+			else
+				ps.print("-");
+			break;
+		case OP_GETTABLE:
+		case OP_SELF:
+			if (ISK(c)) {
 				ps.print("  ; ");
-				printConstant(ps, f, bx);
-				break;
-			case OP_GETUPVAL:
-			case OP_SETUPVAL:
+				printConstant(ps, f, INDEXK(c));
+			}
+			break;
+		case OP_SETTABLE:
+		case OP_ADD:
+		case OP_SUB:
+		case OP_MUL:
+		case OP_DIV:
+		case OP_POW:
+		case OP_EQ:
+		case OP_LT:
+		case OP_LE:
+			case OP_IDIV:
+			case OP_BAND:
+			case OP_BOR:
+			case OP_BXOR:
+			case OP_SHL:
+			case OP_SHR:
+			case OP_BNOT:
+			if (ISK(b) || ISK(c)) {
 				ps.print("  ; ");
-				if (b < f.upvalues.length) {
-					printUpvalue(ps, f.upvalues[b]);
-				} else {
-					ps.print("UNKNOWN_UPVALUE_" + b);
-				}	
-				break;
-			case OP_GETTABUP:
-				ps.print("  ; ");
-				if (b < f.upvalues.length) {
-					printUpvalue(ps, f.upvalues[b]);
-				} else {
-					ps.print("UNKNOWN_UPVALUE_" + b);
-				}
-				ps.print(" ");
-				if (ISK(c))
-					printConstant(ps, f, INDEXK(c));
-				else
-					ps.print("-");
-				break;
-			case OP_SETTABUP:
-				ps.print("  ; ");
-				if (a < f.upvalues.length) {
-					printUpvalue(ps, f.upvalues[a]);
-				} else {
-					ps.print("UNKNOWN_UPVALUE_" + a);
-				}
-				ps.print(" ");
 				if (ISK(b))
 					printConstant(ps, f, INDEXK(b));
 				else
@@ -263,62 +277,28 @@ public class Print extends Lua {
 					printConstant(ps, f, INDEXK(c));
 				else
 					ps.print("-");
-				break;
-			case OP_GETTABLE:
-			case OP_SELF:
-				if (ISK(c)) {
-					ps.print("  ; ");
-					printConstant(ps, f, INDEXK(c));
-				}
-				break;
-			case OP_SETTABLE:
-			case OP_ADD:
-			case OP_SUB:
-			case OP_MUL:
-			case OP_DIV:
-			case OP_POW:
-			case OP_EQ:
-			case OP_LT:
-			case OP_LE:
-				if (ISK(b) || ISK(c)) {
-					ps.print("  ; ");
-					if (ISK(b))
-						printConstant(ps, f, INDEXK(b));
-					else
-						ps.print("-");
-					ps.print(" ");
-					if (ISK(c))
-						printConstant(ps, f, INDEXK(c));
-					else
-						ps.print("-");
-				}
-				break;
-			case OP_JMP:
-			case OP_FORLOOP:
-			case OP_FORPREP:
-				ps.print("  ; to " + (sbx + pc + 2));
-				break;
-			case OP_CLOSURE:
-				if (bx < f.p.length) {
-					ps.print("  ; " + f.p[bx].getClass().getName());
-				} else {
-					ps.print("  ; UNKNOWN_PROTYPE_" + bx);
-				}
-				break;
-			case OP_SETLIST:
-				if (c == 0)
-					ps.print("  ; " + ((int) code[++pc]) + " (stored in the next OP)");
-				else
-					ps.print("  ; " + ((int) c));
-				break;
-			case OP_VARARG:
-				ps.print( "  ; is_vararg="+ f.is_vararg );
-				break;			
-			default:
-				break;
 			}
+			break;
+		case OP_JMP:
+		case OP_FORLOOP:
+		case OP_FORPREP:
+			ps.print("  ; to " + (sbx + pc + 2));
+			break;
+		case OP_CLOSURE:
+			ps.print("  ; " + f.p[bx].getClass().getName());
+			break;
+		case OP_SETLIST:
+			if (c == 0)
+				ps.print("  ; " + ((int) code[++pc]));
+			else
+				ps.print("  ; " + ((int) c));
+			break;
+		case OP_VARARG:
+			ps.print( "  ; is_vararg="+ f.is_vararg );
+			break;			
+		default:
+			break;
 		}
-		return pc;
 	}
 
 	private static int getline(Prototype f, int pc) {

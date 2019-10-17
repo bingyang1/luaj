@@ -50,6 +50,7 @@ public class FuncState extends Constants {
 	Hashtable h;  /* table to find (and reuse) elements in `k' */
 	FuncState prev;  /* enclosing function */
 	LexState ls;  /* lexical state */
+	LuaC.CompileState L;  /* compiler being invoked */
 	BlockCnt bl;  /* chain of current blocks */
 	int pc;  /* next position to code (equivalent to `ncode') */
 	int lasttarget;   /* `pc' of last `jump target' */
@@ -112,8 +113,8 @@ public class FuncState extends Constants {
 	void errorlimit (int limit, String what) {
 		// TODO: report message logic.
 	  	String msg = (f.linedefined == 0) ?
-	  	    ls.L.pushfstring("main function has more than "+limit+" "+what) :
-	  	    ls.L.pushfstring("function at line "+f.linedefined+" has more than "+limit+" "+what);
+	  	    L.pushfstring("main function has more than "+limit+" "+what) :
+	  	    L.pushfstring("function at line "+f.linedefined+" has more than "+limit+" "+what);
 	  	  ls.lexerror(msg, 0);
 	}
 
@@ -295,7 +296,7 @@ public class FuncState extends Constants {
 				}
 			}  /* else go through */
 		}
-		this.codeABC(OP_LOADNIL, from, n - 1, 0);
+		this.codeABC(OP_LOADNIL, from, n - 1, 0); 
 	}
 
 
@@ -477,7 +478,7 @@ public class FuncState extends Constants {
 			this.h = new Hashtable();
 		} else if (this.h.containsKey(v)) {
 			return ((Integer) h.get(v)).intValue();
-		}
+		} 
 		final int idx = this.nk;
 		this.h.put(v, new Integer(idx));
 		final Prototype f = this.f;
@@ -494,8 +495,8 @@ public class FuncState extends Constants {
 	int numberK(LuaValue r) {
 		if ( r instanceof LuaDouble ) {
 			double d = r.todouble();
-			int i = (int) d;
-			if ( d == (double) i )
+			long i = (long) d;
+			if ( d == (double) i ) 
 				r = LuaInteger.valueOf(i);
 		}
 		return this.addk(r);
@@ -580,11 +581,11 @@ public class FuncState extends Constants {
 			break;
 		}
 		case LexState.VK: {
-			this.codeK(reg, e.u.info);
+			this.codeABx(OP_LOADK, reg, e.u.info);
 			break;
 		}
 		case LexState.VKNUM: {
-			this.codeK(reg, this.numberK(e.u.nval()));
+			this.codeABx(OP_LOADK, reg, this.numberK(e.u.nval()));
 			break;
 		}
 		case LexState.VRELOCABLE: {
@@ -687,7 +688,7 @@ public class FuncState extends Constants {
 		case LexState.VKNUM: {
 		      e.u.info = this.numberK(e.u.nval());
 		      e.k = LexState.VK;
-		      /* go through */
+		      /* go through */			
 		}
 		case LexState.VK: {
 			if (e.u.info <= MAXINDEXRK) /* constant fit in argC? */
@@ -896,6 +897,29 @@ public class FuncState extends Constants {
 		case OP_UNM:
 			r = v1.neg();
 			break;
+
+			case OP_IDIV:
+				r = v1.idiv(v2);
+				break;
+			case OP_BAND:
+				r = v1.band(v2);
+				break;
+			case OP_BOR:
+				r = v1.bor(v2);
+				break;
+			case OP_BXOR:
+				r = v1.bxor(v2);
+				break;
+			case OP_SHL:
+				r = v1.shl(v2);
+				break;
+			case OP_SHR:
+				r = v1.shr(v2);
+				break;
+			case OP_BNOT:
+				r = v1.bnot();
+				break;
+
 		case OP_LEN:
 			// r = v1.len();
 			// break;
@@ -915,7 +939,7 @@ public class FuncState extends Constants {
 		if (constfolding(op, e1, e2))
 			return;
 		else {
-			int o2 = (op != OP_UNM && op != OP_LEN) ? this.exp2RK(e2)
+			int o2 = (op != OP_UNM && op != OP_LEN && op != OP_BNOT) ? this.exp2RK(e2)
 					: 0;
 			int o1 = this.exp2RK(e1);
 			if (o1 > o2) {
@@ -968,6 +992,15 @@ public class FuncState extends Constants {
 			this.codearith(OP_LEN, e, e2, line);
 			break;
 		}
+		case LexState.OPR_BNOT: {
+			if (e.isnumeral())  /* minus constant? */
+				e.u.setNval(e.u.nval().bnot());  /* fold it */
+			else {
+				this.exp2anyreg(e);
+				this.codearith(OP_BXOR, e, e2, line);
+			}
+			break;
+			}
 		default:
 			_assert (false);
 		}
@@ -987,6 +1020,12 @@ public class FuncState extends Constants {
 			this.exp2nextreg(v); /* operand must be on the `stack' */
 			break;
 		}
+			case LexState.OPR_IDIV:
+			case LexState.OPR_BAND:
+			case LexState.OPR_BOR:
+			case LexState.OPR_BXOR:
+			case LexState.OPR_SHL:
+			case LexState.OPR_SHR:
 		case LexState.OPR_ADD:
 		case LexState.OPR_SUB:
 		case LexState.OPR_MUL:
@@ -1056,6 +1095,26 @@ public class FuncState extends Constants {
 		case LexState.OPR_POW:
 			this.codearith(OP_POW, e1, e2, line);
 			break;
+
+			case LexState.OPR_IDIV:
+				this.codearith(OP_IDIV, e1, e2, line);
+				break;
+			case LexState.OPR_BAND:
+				this.codearith(OP_BAND, e1, e2, line);
+				break;
+			case LexState.OPR_BOR:
+				this.codearith(OP_BOR, e1, e2, line);
+				break;
+			case LexState.OPR_BXOR:
+				this.codearith(OP_BXOR, e1, e2, line);
+				break;
+			case LexState.OPR_SHL:
+				this.codearith(OP_SHL, e1, e2, line);
+				break;
+			case LexState.OPR_SHR:
+				this.codearith(OP_SHR, e1, e2, line);
+				break;
+
 		case LexState.OPR_EQ:
 			this.codecomp(OP_EQ, 1, e1, e2);
 			break;
@@ -1116,20 +1175,6 @@ public class FuncState extends Constants {
 		return this.code(CREATE_ABx(o, a, bc), this.ls.lastline);
 	}
 
-	int codeextraarg(int a) {
-		_assert(a <= MAXARG_Ax);
-		return this.code(CREATE_Ax(OP_EXTRAARG, a), this.ls.lastline);
-	}
-
-	int codeK(int reg, int k) {
-		if (k <= MAXARG_Bx)
-			return codeABx(OP_LOADK, reg, k);
-		else {
-			int p = codeABx(OP_LOADKX, reg, 0);
-			codeextraarg(k);
-			return p;
-		}
-	}
 
 	void setlist(int base, int nelems, int tostore) {
 		int c = (nelems - 1) / LFIELDS_PER_FLUSH + 1;

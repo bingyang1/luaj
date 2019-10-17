@@ -23,8 +23,8 @@ package org.luaj.vm2.lib.jse;
 
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.LoadState;
+import org.luaj.vm2.LuaThread;
 import org.luaj.vm2.LuaValue;
-import org.luaj.vm2.Varargs;
 import org.luaj.vm2.compiler.LuaC;
 import org.luaj.vm2.lib.Bit32Lib;
 import org.luaj.vm2.lib.CoroutineLib;
@@ -34,10 +34,10 @@ import org.luaj.vm2.lib.ResourceFinder;
 import org.luaj.vm2.lib.StringLib;
 import org.luaj.vm2.lib.TableLib;
 
-/** The {@link org.luaj.vm2.lib.jse.JsePlatform} class is a convenience class to standardize
- * how globals tables are initialized for the JSE platform.
+/** The {@link org.luaj.vm2.lib.jse.JsePlatform} class is a convenience class to standardize 
+ * how globals tables are initialized for the JSE platform. 
  * <p>
- * It is used to allocate either a set of standard globals using
+ * It is used to allocate either a set of standard globals using 
  * {@link #standardGlobals()} or debug globals using {@link #debugGlobals()}
  * <p>
  * A simple example of initializing globals and using them from Java is:
@@ -51,7 +51,7 @@ import org.luaj.vm2.lib.TableLib;
  * globals.load( new FileInputStream("main.lua"), "main.lua" ).call();
  * } </pre>
  * <p>
- * although {@code require} could also be used:
+ * although {@code require} could also be used: 
  * <pre> {@code
  * globals.get("require").call(LuaValue.valueOf("main"));
  * } </pre>
@@ -72,8 +72,8 @@ import org.luaj.vm2.lib.TableLib;
  * <li>{@link org.luaj.vm2.lib.jse.JseOsLib}</li>
  * <li>{@link org.luaj.vm2.lib.jse.LuajavaLib}</li>
  * </ul>
- * In addition, the {@link LuaC} compiler is installed so lua files may be loaded in their source form.
- * <p>
+ * In addition, the {@link LuaC} compiler is installed so lua files may be loaded in their source form. 
+ * <p> 
  * The debug globals are simply the standard globals plus the {@code debug} library {@link DebugLib}.
  * <p>
  * The class ensures that initialization is done in the correct order.
@@ -97,15 +97,16 @@ public class JsePlatform {
 		globals.load(new PackageLib());
 		globals.load(new Bit32Lib());
 		globals.load(new TableLib());
-		globals.load(new JseStringLib());
+		globals.load(new StringLib());
 		globals.load(new CoroutineLib());
 		globals.load(new JseMathLib());
 		globals.load(new JseIoLib());
 		globals.load(new JseOsLib());
 		globals.load(new LuajavaLib());
+		globals.load(new DebugLib());
 		LoadState.install(globals);
 		LuaC.install(globals);
-		return globals;
+		return globals;		
 	}
 
 	/** Create standard globals including the {@link DebugLib} library.
@@ -123,12 +124,11 @@ public class JsePlatform {
 	}
 
 
-	/** Simple wrapper for invoking a lua function with command line arguments.
-	 * The supplied function is first given a new Globals object as its environment
+	/** Simple wrapper for invoking a lua function with command line arguments.  
+	 * The supplied function is first given a new Globals object, 
 	 * then the program is run with arguments.
-	 * @return {@link Varargs} containing any values returned by mainChunk.
 	 */
-	public static Varargs luaMain(LuaValue mainChunk, String[] args) {
+	public static void luaMain(LuaValue mainChunk, String[] args) {
 		Globals g = standardGlobals();
 		int n = args.length;
 		LuaValue[] vargs = new LuaValue[args.length];
@@ -138,6 +138,6 @@ public class JsePlatform {
 		arg.set("n", n);
 		g.set("arg", arg);
 		mainChunk.initupvalue1(g);
-		return mainChunk.invoke(LuaValue.varargsOf(vargs));
+		mainChunk.invoke(LuaValue.varargsOf(vargs));
 	}
 }

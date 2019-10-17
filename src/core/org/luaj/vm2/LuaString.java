@@ -144,7 +144,7 @@ public class LuaString extends LuaValue {
 	/** Construct a new LuaString using a copy of the bytes array supplied */
 	private static LuaString valueFromCopy(byte[] bytes, int off, int len) {
 		final byte[] copy = new byte[len];
-		System.arraycopy(bytes, off, copy, 0, len);
+		for (int i=0; i<len; ++i) copy[i] = bytes[off+i];
 		return new LuaString(copy, 0, len);
 	}
 
@@ -391,23 +391,23 @@ public class LuaString extends LuaValue {
 	public short   toshort()       { return (short) toint(); }
 
 	public double optdouble(double defval) {
-		return checkdouble();
+		return checknumber().checkdouble();
 	}
 	
 	public int optint(int defval) {
-		return checkint();
+		return checknumber().checkint();
 	}
 	
 	public LuaInteger optinteger(LuaInteger defval) { 
-		return checkinteger();
+		return checknumber().checkinteger();
 	}
 	
 	public long optlong(long defval) {
-		return checklong();
+		return checknumber().checklong();
 	}
 	
 	public LuaNumber optnumber(LuaNumber defval) {
-		return checknumber();
+		return checknumber().checknumber();
 	}
 	
 	public LuaString optstring(LuaString defval) {

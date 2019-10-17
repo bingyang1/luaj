@@ -21,7 +21,6 @@
 ******************************************************************************/
 package org.luaj.vm2.lib.jse;
 
-import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -107,10 +106,9 @@ public class JseBaseLib extends org.luaj.vm2.lib.BaseLib {
 		if ( ! f.exists() )
 			return super.findResource(filename);
 		try {
-			return new BufferedInputStream(new FileInputStream(f));
+			return new FileInputStream(f);
 		} catch ( IOException ioe ) {
 			return null;
 		}
 	}
 }
-

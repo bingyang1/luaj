@@ -1,3 +1,98 @@
+# luaj nirenr修改版。
+优化lua++语法。
+** 可省略非必要关键字 **
+- 省略thne
+if a then
+end
+-->
+if a
+end
+
+- 省略do
+while a do
+end
+--
+while a
+end
+
+- 省略in
+for k,v in pairs(t) do
+end
+-->
+for k,v pairs(t)
+end
+
+- 支持switch
+switch a
+  case 1,3,5,7,9
+    print(1)
+  case 2,4,6,8
+    print(2)
+  case 0
+    print(0)
+  default
+    print(nil)
+end
+
+- 支持continue
+
+for n=1,10
+  if n%2==0
+    continue
+ end
+ print(n)
+end
+
+** 支持位运算 **
+
+- 按位与
+a=1&2
+
+- 按位或
+a=1|2
+
+- 按位异或
+a=1~2
+
+- 右移
+a=1>>8
+
+- 左移
+a=8<<2
+
+- 按位非
+a=~2
+
+** 支持64位整数 **
+i=0xffffffffff
+
+** 调用java优化 **
+- 直接()构建实例或实现接口
+b=ArrayList()
+m=HashMap()
+i=interface{
+  methodname=function(arg)
+  end
+}
+
+- 直接创建数组
+i=int[10]
+
+- java 方法使用.调用
+b.add(!)
+
+- java getter/setter
+b.setText("")
+-->
+b.text=""
+m.abc=1
+
+t=b.getText()
+-->
+t=b.text
+t=m.abc
+
+
 # This is a fork!
 <div style="border: 1px dotted red; margin: 1.em 0.5em; font-weight: bold; color: red;">
 This repository has been forked from the original CVS sources of Luaj.

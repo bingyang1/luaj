@@ -266,8 +266,8 @@ public class LuaTable extends LuaValue implements Metatable {
 
 	/** caller must ensure key is not nil */
 	public void set( LuaValue key, LuaValue value ) {
-		if (key == null || !key.isvalidkey() && !metatag(NEWINDEX).isfunction())
-			throw new LuaError("value ('" + key + "') can not be used as a table index");
+		if (!key.isvalidkey() && !metatag(NEWINDEX).isfunction())
+			typerror("table index");
 		if ( m_metatable==null || ! rawget(key).isnil() ||  ! settable(this,key,value) )
 			rawset(key, value);
 	}
@@ -347,12 +347,7 @@ public class LuaTable extends LuaValue implements Metatable {
 	}
 
 	public int length() {
-		if (m_metatable != null) {
-			LuaValue len = len();
-			if (!len.isint()) throw new LuaError("table length is not an integer: " + len);
-			return len.toint();
-		}
-		return rawlen();
+		return m_metatable != null? len().toint(): rawlen(); 
 	}
 	
 	public LuaValue len()  { 
@@ -395,7 +390,7 @@ public class LuaTable extends LuaValue implements Metatable {
 					}
 				}
 				if ( hash.length == 0 )
-					error( "invalid key to 'next' 1: " + key );
+					error( "invalid key to 'next'" );
 				i = hashSlot( key );
 				boolean found = false;
 				for ( Slot slot = hash[i]; slot != null; slot = slot.rest() ) {
@@ -409,7 +404,7 @@ public class LuaTable extends LuaValue implements Metatable {
 					}
 				}
 				if ( !found ) {
-					error( "invalid key to 'next' 2: " + key );
+					error( "invalid key to 'next'" );
 				}
 				i += 1+array.length;
 			}
@@ -785,7 +780,6 @@ public class LuaTable extends LuaValue implements Metatable {
 	 * @param comparator {@link LuaValue} to be called to compare elements.
 	 */
 	public void sort(LuaValue comparator) {
-		if (len().tolong() >= (long)Integer.MAX_VALUE) throw new LuaError("array too big: " + len().tolong());
 		if (m_metatable != null && m_metatable.useWeakValues()) {
 			dropWeakArrayValues();
 		}
@@ -898,11 +892,6 @@ public class LuaTable extends LuaValue implements Metatable {
 
 	/** Unpack the elements from i to j inclusive */
 	public Varargs unpack(int i, int j) {
-		if (j < i) return NONE;
-		int count = j - i;
-		if (count < 0) throw new LuaError("too many results to unpack: greater " + Integer.MAX_VALUE); // integer overflow
-		int max = 0x00ffffff;
-		if (count >= max) throw new LuaError("too many results to unpack: " + count + " (max is " + max + ')');
 		int n = j + 1 - i;
 		switch (n) {
 		case 0: return NONE;
@@ -911,14 +900,10 @@ public class LuaTable extends LuaValue implements Metatable {
 		default:
 			if (n < 0)
 				return NONE;
-			try {
-				LuaValue[] v = new LuaValue[n];
-				while (--n >= 0)
-					v[n] = get(i+n);
-				return varargsOf(v);
-			} catch (OutOfMemoryError e) {
-				throw new LuaError("too many results to unpack [out of memory]: " + n);
-			}
+			LuaValue[] v = new LuaValue[n];
+			while (--n >= 0)
+				v[n] = get(i+n);
+			return varargsOf(v);
 		}
 	}
 
@@ -1246,14 +1231,13 @@ public class LuaTable extends LuaValue implements Metatable {
 		}
 
 		public Entry set(LuaValue value) {
-			if (value.type() == TNUMBER) {
-				LuaValue n = value.tonumber();
-				if (!n.isnil()) {
-					this.value = n.todouble();
-					return this;
-				}
+			LuaValue n = value.tonumber();
+			if ( !n.isnil() ) {
+				this.value = n.todouble();
+				return this;
+			} else {
+				return new NormalEntry( this.key, value );
 			}
-			return new NormalEntry( this.key, value );
 		}
 
 		public int keyindex( int mask ) {
