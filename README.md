@@ -7,28 +7,28 @@ t可取值: 0 不检查,1 检查全局变量, 2检查局部变量, 4 检查表�
 
 #### ** 可省略非必要关键字 **
 - 省略thne
-if a then
+`if a then
 end
 -->
 if a
-end
+end`
 
 - 省略do
-while a do
+`while a do
 end
 --
 while a
-end
+end`
 
 - 省略in
-for k,v in pairs(t) do
+`for k,v in pairs(t) do
 end
 -->
 for k,v pairs(t)
-end
+end`
 
 - 支持switch
-switch a
+`switch a
   case 1,3,5,7,9
     print(1)
   case 2,4,6,8
@@ -37,16 +37,16 @@ switch a
     print(0)
   default
     print(nil)
-end
+end`
 
 - 支持continue
 
-for n=1,10
+`for n=1,10
   if n%2==0
     continue
  end
  print(n)
-end
+end`
 
 #### ** 支持位运算 **
 
@@ -69,25 +69,25 @@ a=8<<2
 a=~2
 
 #### ** 支持64位整数 **
-i=0xffffffffff
+`i=0xffffffffff`
 
 #### ** 调用java优化 **
 - 直接()构建实例或实现接口
-b=ArrayList()
+`b=ArrayList()
 m=HashMap()
 i=interface{
   methodname=function(arg)
   end
-}
+}`
 
 - 直接创建数组
-i=int[10]
+`i=int[10]`
 
 - java 方法使用.调用
-b.add(!)
+`b.add(!)`
 
 - java getter/setter
-b.setText("")
+`b.setText("")
 -->
 b.text=""
 m.abc=1
@@ -95,7 +95,7 @@ m.abc=1
 t=b.getText()
 -->
 t=b.text
-t=m.abc
+t=m.abc`
 
 
 # This is a fork!
