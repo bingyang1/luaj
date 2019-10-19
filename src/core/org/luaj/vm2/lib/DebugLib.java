@@ -105,6 +105,7 @@ public class DebugLib extends TwoArgFunction {
 	static final LuaString LASTLINEDEFINED = valueOf("lastlinedefined");
 	static final LuaString CURRENTLINE     = valueOf("currentline");
 	static final LuaString ACTIVELINES     = valueOf("activelines");
+	static final LuaString GLOBAL     = valueOf("global");
 
 	Globals globals;
 	
@@ -134,6 +135,7 @@ public class DebugLib extends TwoArgFunction {
 		debug.set("traceback", new traceback());
 		debug.set("upvalueid", new upvalueid());
 		debug.set("upvaluejoin", new upvaluejoin());
+		debug.set("setchecktype", new setchecktype());
 		env.set("debug", debug);
 		if (!env.get("package").isnil()) env.get("package").get("loaded").set("debug", debug);
 		return debug;
@@ -782,6 +784,11 @@ public class DebugLib extends TwoArgFunction {
 		if (pc != -1) { /* could find instruction? */
 			int i = p.code[pc];
 			switch (Lua.GET_OPCODE(i)) {
+				case Lua.OP_GETGLOBAL: {
+					int g = Lua.GETARG_Bx(i); /* global index */
+					// lua_assert(p.k[g].isString());
+					return new NameWhat(p.k[g].tojstring(), "global" );
+				}
 			case Lua.OP_MOVE: {
 				int a = Lua.GETARG_A(i);
 				int b = Lua.GETARG_B(i); /* move from `b' to `a' */
@@ -891,5 +898,14 @@ public class DebugLib extends TwoArgFunction {
 	    }
 	  }
 	  return setreg;
+	}
+
+	class setchecktype extends OneArgFunction {
+
+		@Override
+		public LuaValue call(LuaValue arg) {
+			LuaClosure.setCheckType(arg.checkint());
+			return NONE;
+		}
 	}
 }
