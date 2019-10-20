@@ -189,7 +189,7 @@ class JavaInstance extends LuaUserdata {
                     jclass.setTypeCache.put(key, TYPE_SETTER);
                 }
                 m.setuservalue(m_instance);
-                m.call();
+                m.call(value);
                 return;
             }
         }

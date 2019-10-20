@@ -108,6 +108,11 @@ class JavaClass extends JavaInstance implements CoerceJavaToLua.Coercion {
                 Class obj = (Class) touserdata();
                 if (obj.isInterface())
                     return LuajavaLib.createProxy(obj, arg);
+                if(Map.class.isAssignableFrom(obj))
+                    return CoerceJavaToLua.coerce(new CoerceLuaToJava.MapCoercion(obj).coerce(arg));
+                if(List.class.isAssignableFrom(obj))
+                    return CoerceJavaToLua.coerce(new CoerceLuaToJava.ListCoercion(obj).coerce(arg));
+
                 return CoerceJavaToLua.coerce(new CoerceLuaToJava.ArrayCoercion(obj).coerce(arg));
             }
         }

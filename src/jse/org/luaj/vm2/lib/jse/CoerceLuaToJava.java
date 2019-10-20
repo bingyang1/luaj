@@ -22,13 +22,16 @@
 package org.luaj.vm2.lib.jse;
 
 import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.luaj.vm2.LuaString;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.LuaValue;
+import org.luaj.vm2.Varargs;
 
 /**
  * Helper class to coerce values from lua to Java within the luajava library. 
@@ -89,7 +92,7 @@ public class CoerceLuaToJava {
 			case LuaValue.TBOOLEAN:
 				return 0;
 			}
-			return 1;
+			return 32;
 		}
 
 		public Object coerce(LuaValue value) {
@@ -138,12 +141,16 @@ public class CoerceLuaToJava {
 							((i==(byte)i)? 1: (i==(short)i)? 0: SCORE_WRONG_TYPE);
 				}
 				case TARGET_TYPE_INT: { 
-					int i = value.toint();
+					long i = value.tolong();
 					return fromStringPenalty +
-							((i==(byte)i)? 2: ((i==(char)i) || (i==(short)i))? 1: 0);
+							((i==(byte)i)? 2: ((i==(char)i) || (i==(short)i))? 1: (i==(int)i)? 0: SCORE_WRONG_TYPE);
 				}
+					case TARGET_TYPE_LONG:{
+						long i = value.tolong();
+						return fromStringPenalty +
+								((i==(byte)i)? 3: ((i==(char)i) || (i==(short)i))? 2: (i==(int)i)? 1: 0);
+					}
 				case TARGET_TYPE_FLOAT: return fromStringPenalty + 1;
-				case TARGET_TYPE_LONG: return fromStringPenalty + 1;
 				case TARGET_TYPE_DOUBLE: return fromStringPenalty + 2;
 				default: return SCORE_WRONG_TYPE;
 				}
@@ -178,7 +185,7 @@ public class CoerceLuaToJava {
 			case TARGET_TYPE_CHAR: return new Character( (char) value.toint() );
 			case TARGET_TYPE_SHORT: return new Short( (short) value.toint() );
 			case TARGET_TYPE_INT: return new Integer( (int) value.toint() );
-			case TARGET_TYPE_LONG: return new Long( (long) value.todouble() );
+			case TARGET_TYPE_LONG: return new Long( (long) value.tolong() );
 			case TARGET_TYPE_FLOAT: return new Float( (float) value.todouble() );
 			case TARGET_TYPE_DOUBLE: return new Double( (double) value.todouble() );
 			default: return null;
@@ -233,7 +240,7 @@ public class CoerceLuaToJava {
 		public int score(LuaValue value) {
 			switch ( value.type() ) {
 			case LuaValue.TTABLE:
-				return value.length()==0? 0: componentCoercion.score( value.get(1) );
+				return value.length()==0? 0: check(value);
 			case LuaValue.TUSERDATA:
 				return inheritanceLevels( componentType, value.touserdata().getClass().getComponentType() );
 			case LuaValue.TNIL:
@@ -242,6 +249,22 @@ public class CoerceLuaToJava {
 				return SCORE_UNCOERCIBLE;
 			}
 		}
+		private int check(LuaValue value){
+			int n=0;
+			int len = value.length();
+			int s = 1;
+			if(len>10)
+				s=len/10;
+			for (int i = 0; i < len; i+=s) {
+				int r = componentCoercion.score(value.get(i));
+				if(r>n)
+					n=r;
+				if(r==SCORE_WRONG_TYPE)
+					break;
+			}
+			return n;
+		}
+
 		public Object coerce(LuaValue value) {
 			switch ( value.type() ) {
 			case LuaValue.TTABLE: {
@@ -259,6 +282,156 @@ public class CoerceLuaToJava {
 				return null;
 			}
 			
+		}
+	}
+
+	static final class ListCoercion implements Coercion {
+		final Class componentType;
+		final Coercion componentCoercion;
+		public ListCoercion(Class componentType) {
+			this.componentType = componentType;
+			this.componentCoercion = new ObjectCoercion(componentType);
+		}
+		public String toString() {
+			return "ListCoercion("+componentType.getName()+")";
+		}
+		public int score(LuaValue value) {
+			switch ( value.type() ) {
+				case LuaValue.TTABLE:
+					return 0;
+				case LuaValue.TUSERDATA:
+					return inheritanceLevels( componentType, value.touserdata().getClass() );
+				case LuaValue.TNIL:
+					return SCORE_NULL_VALUE;
+				default:
+					return SCORE_UNCOERCIBLE;
+			}
+		}
+
+		public Object coerce(LuaValue value) {
+			switch ( value.type() ) {
+				case LuaValue.TTABLE: {
+					try {
+						List<Object> list;
+						if (componentType.equals(Map.class))
+							list = new ArrayList<>();
+						else
+							list = (List<Object>) componentType.newInstance();
+
+						int n = value.length();
+						for ( int i=0; i<n; i++ )
+							list.add(componentCoercion.coerce(value.get(i+1)));
+						return list;
+					} catch (IllegalAccessException e) {
+						e.printStackTrace();
+					} catch (InstantiationException e) {
+						e.printStackTrace();
+					}
+
+				}
+				case LuaValue.TUSERDATA:
+					return value.touserdata();
+				case LuaValue.TNIL:
+					return null;
+				default:
+					return null;
+			}
+		}
+	}
+
+	static final class MapCoercion implements Coercion {
+		final Class componentType;
+		final Coercion componentCoercion;
+		public MapCoercion(Class componentType) {
+			this.componentType = componentType;
+			this.componentCoercion = new ObjectCoercion(componentType);
+		}
+		public String toString() {
+			return "MapCoercion("+componentType.getName()+")";
+		}
+		public int score(LuaValue value) {
+			switch ( value.type() ) {
+				case LuaValue.TTABLE:
+					return 0;
+				case LuaValue.TUSERDATA:
+					return inheritanceLevels( componentType, value.touserdata().getClass() );
+				case LuaValue.TNIL:
+					return SCORE_NULL_VALUE;
+				default:
+					return SCORE_UNCOERCIBLE;
+			}
+		}
+
+		public Object coerce(LuaValue value) {
+			switch ( value.type() ) {
+				case LuaValue.TTABLE: {
+					try {
+						Map<Object, Object> map;
+					if (componentType.equals(Map.class))
+						map = new HashMap<>();
+					else
+						map = (Map<Object, Object>) componentType.newInstance();
+
+					Varargs ret = value.next(LuaValue.NIL);
+					while (ret!=LuaValue.NIL){
+						LuaValue k = ret.arg1();
+						map.put(componentCoercion.coerce(k),componentCoercion.coerce(ret.arg(2)));
+						ret=value.next(k);
+					}
+					return map;
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				} catch (InstantiationException e) {
+					e.printStackTrace();
+				}
+				}
+				case LuaValue.TUSERDATA:
+					return value.touserdata();
+				case LuaValue.TNIL:
+					return null;
+				default:
+					return null;
+			}
+
+		}
+	}
+
+	static final class InterFaceCoercion implements Coercion {
+		final Class componentType;
+		final Coercion componentCoercion;
+		public InterFaceCoercion(Class componentType) {
+			this.componentType = componentType;
+			this.componentCoercion = new ObjectCoercion(componentType);
+		}
+		public String toString() {
+			return "InterFaceCoercion("+componentType.getName()+")";
+		}
+		public int score(LuaValue value) {
+			switch ( value.type() ) {
+				case LuaValue.TTABLE:
+				case LuaValue.TFUNCTION:
+					return 0;
+				case LuaValue.TUSERDATA:
+					return inheritanceLevels( componentType, value.touserdata().getClass() );
+				case LuaValue.TNIL:
+					return SCORE_NULL_VALUE;
+				default:
+					return SCORE_UNCOERCIBLE;
+			}
+		}
+
+		public Object coerce(LuaValue value) {
+			switch ( value.type() ) {
+				case LuaValue.TTABLE: {
+					return LuajavaLib.createProxy(componentType,value);
+				}
+				case LuaValue.TUSERDATA:
+					return value.touserdata();
+				case LuaValue.TNIL:
+					return null;
+				default:
+					return null;
+			}
 		}
 	}
 
@@ -361,9 +534,14 @@ public class CoerceLuaToJava {
 			return co;
 		}
 		if ( c.isArray() ) {
-			Class typ = c.getComponentType();
 			co = new ArrayCoercion(c.getComponentType());
-		} else {
+		} else	if ( Map.class.isAssignableFrom(c) ) {
+			co = new MapCoercion(c);
+		} else	if ( List.class.isAssignableFrom(c) ) {
+			co = new ListCoercion(c);
+		}/* else	if ( c.isInterface() ) {
+			co = new InterFaceCoercion(c);
+		}*/  else {
 			co = new ObjectCoercion(c);
 		}
 		COERCIONS.put( c, co );

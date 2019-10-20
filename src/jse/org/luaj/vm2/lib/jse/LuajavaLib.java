@@ -175,9 +175,9 @@ public class LuajavaLib extends VarArgFunction {
 				// get constructor
 				String classname = args.checkjstring(1);
 				String methodname = args.checkjstring(2);
-				Class clazz = classForName(classname);
-				Method method = clazz.getMethod(methodname, new Class[] {});
-				Object result = method.invoke(clazz, new Object[] {});
+				Class<?> clazz = classForName(classname);
+				Method method = clazz.getMethod(methodname);
+				Object result = method.invoke(clazz);
 				if ( result instanceof LuaValue ) {
 					return (LuaValue) result;
 				} else {
@@ -210,7 +210,7 @@ public class LuajavaLib extends VarArgFunction {
 	}
 
 	// load classes using app loader to allow luaj to be used as an extension
-	protected Class classForName(String name) throws ClassNotFoundException {
+	protected Class<?> classForName(String name) throws ClassNotFoundException {
 		return Class.forName(name, true, ClassLoader.getSystemClassLoader());
 	}
 	
@@ -223,7 +223,12 @@ public class LuajavaLib extends VarArgFunction {
 
 		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 			String name = method.getName();
-			LuaValue func = lobj.get(name);
+			LuaValue func ;
+			if(lobj.isfunction())
+				func = lobj;
+			else
+			    func = lobj.get(name);
+
 			if ( func.isnil() )
 				return null;
 			boolean isvarargs = ((method.getModifiers() & METHOD_MODIFIERS_VARARGS) != 0);
