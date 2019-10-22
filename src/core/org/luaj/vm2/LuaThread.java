@@ -22,6 +22,8 @@
 package org.luaj.vm2;
 
 
+import org.luaj.vm2.lib.DebugLib;
+
 import java.lang.ref.WeakReference;
 
 /** 
@@ -100,10 +102,10 @@ public class LuaThread extends LuaValue {
 
 	/** Thread-local used by DebugLib to store debugging state. 
 	 * This is an opaque value that should not be modified by applications. */
-	public Object callstack;
+	public DebugLib.CallStack callstack;
 
 	public final Globals globals;
-
+    public final LuaTable registry=new LuaTable();
 	/** Error message handler for this thread, if any.  */
 	public LuaValue errorfunc;
 	
@@ -112,6 +114,8 @@ public class LuaThread extends LuaValue {
 		state = new State(globals, this, null);
 		state.status = STATUS_RUNNING;
 		this.globals = globals;
+		registry.set(1,this);
+		registry.set(2,globals);
 	}
 	
 	/** 
@@ -122,6 +126,8 @@ public class LuaThread extends LuaValue {
 		LuaValue.assert_(func != null, "function cannot be null");
 		state = new State(globals, this, func);
 		this.globals = globals;
+		registry.set(1,this);
+		registry.set(2,globals);
 	}
 	
 	public int type() {

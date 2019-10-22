@@ -246,7 +246,7 @@ public class DebugLib extends TwoArgFunction {
 	//	debug.getregistry ()
 	final class getregistry extends ZeroArgFunction {
 		public LuaValue call() {
-			return globals;
+			return globals.running.registry;
 		}
 	}
 
@@ -438,6 +438,10 @@ public class DebugLib extends TwoArgFunction {
 		if (s.inhook) return;
 		callstack().onReturn();
 		if (s.hookrtrn) callHook(s, RETURN, NIL);
+	}
+
+	public CallFrame getCallFrame(int level) {
+		return callstack().getCallFrame(level);
 	}
 
 	public String traceback(int level) {
@@ -647,7 +651,7 @@ public class DebugLib extends TwoArgFunction {
 
 	}
 
-	static class CallFrame {
+	public static class CallFrame {
 		LuaFunction f;
 		int pc;
 		int top;
@@ -693,7 +697,7 @@ public class DebugLib extends TwoArgFunction {
 				return NIL;
 			}
 		}
-		int currentline() {
+		public int currentline() {
 			if ( !f.isclosure() ) return -1;
 			int[] li = f.checkclosure().p.lineinfo;
 			return li==null || pc<0 || pc>=li.length? -1: li[pc];

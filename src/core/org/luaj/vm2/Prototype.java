@@ -136,6 +136,8 @@ public class Prototype {
 	}
 	
 	public String shortsource() {
+		if(source==null)
+			return "";
 		String name = source.tojstring();
         if ( name.startsWith("@") || name.startsWith("=") )
 			name = name.substring(1);

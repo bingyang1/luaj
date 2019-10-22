@@ -24,6 +24,8 @@ package org.luaj.vm2.lib;
 import java.io.InputStream;
 
 import org.luaj.vm2.Globals;
+import org.luaj.vm2.Lua;
+import org.luaj.vm2.LuaClosure;
 import org.luaj.vm2.LuaFunction;
 import org.luaj.vm2.LuaString;
 import org.luaj.vm2.LuaTable;
@@ -94,6 +96,11 @@ public class PackageLib extends TwoArgFunction {
 		}
 		DEFAULT_LUA_PATH = path;
 	}
+	private static final LuaString _M         = valueOf("_M");
+	private static final LuaString _NAME      = valueOf("_NAME");
+	private static final LuaString _PACKAGE   = valueOf("_PACKAGE");
+	private static final LuaString _DOT       = valueOf(".");
+	private static final LuaString _MODULES = valueOf("modules");
 
 	static final LuaString _LOADED      = valueOf("loaded");
 	private static final LuaString _LOADLIB     = valueOf("loadlib");
@@ -133,8 +140,10 @@ public class PackageLib extends TwoArgFunction {
 	public LuaValue call(LuaValue modname, LuaValue env) {
 		globals = env.checkglobals();
 		globals.set("require", new require());
+		globals.set("module", new module());
 		package_ = new LuaTable();
 		package_.set(_LOADED, new LuaTable());
+		package_.set(_MODULES, new LuaTable());
 		package_.set(_PRELOAD, new LuaTable());
 		package_.set(_PATH, LuaValue.valueOf(DEFAULT_LUA_PATH));
 		package_.set(_LOADLIB, new loadlib());
@@ -376,5 +385,85 @@ public class PackageLib extends TwoArgFunction {
 		default:
 			return false;
 		}
+	}
+
+	private class module extends VarArgFunction {
+
+		public Varargs invoke(Varargs args) {
+			LuaString modname = args.checkstring(1);
+			int n = args.narg();
+			LuaValue loaded = package_.get(_LOADED);
+			LuaValue pkg = package_.get(_MODULES);
+			LuaValue value = loaded.get(modname);
+			LuaValue module;
+			if ( ! value.istable() ) { /* not found? */
+				module =  findtable( pkg, modname );
+				loaded.set(modname, module);
+			} else {
+				module = value;
+			}
+
+		    /* check whether table already has a _NAME field */
+			LuaValue name = module.get(_NAME);
+			if ( name.isnil() ) {
+				modinit( module, modname );
+			}
+
+			// set the environment of the current function
+			if (Lua.LUA_FUNC_ENV) {
+				LuaFunction f = globals.running.callstack.getCallFrame(1).f;
+				if (f == null)
+					error("no calling function");
+				if (!f.isclosure())
+					error("'module' not called from a Lua function");
+				f.setfenv(module);
+			} else if (Lua.LUA_LOCAL_ENV){
+				globals.running.callstack.getCallFrame(1).setLocal(1,module);
+			} else {
+				LuaClosure c = (LuaClosure) globals.running.callstack.getCallFrame(1).f;
+				c.upValues[0].setValue(module);
+			}
+			// apply the functions
+			for ( int i=2; i<=n; i++ )
+				args.arg(i).call( module );
+
+			// returns no results
+			return NONE;
+		}
+
+	}
+	/**
+	 *
+	 * @param table the table at which to start the search
+	 * @param fname the name to look up or create, such as "abc.def.ghi"
+	 * @return the table for that name, possible a new one, or null if a non-table has that name already.
+	 */
+	private static final LuaValue findtable(LuaValue table, LuaString fname) {
+		int b, e=(-1);
+		do {
+			e = fname.indexOf(_DOT, b=e+1 );
+			if ( e < 0 )
+				e = fname.m_length;
+			LuaString key = fname.substring(b, e);
+			LuaValue val = table.rawget(key);
+			if ( val.isnil() ) { /* no such field? */
+				LuaTable field = new LuaTable(); /* new table for field */
+				table.set(key, field);
+				table = field;
+			} else if ( ! val.istable() ) {  /* field has a non-table value? */
+				return null;
+			} else {
+				table = val;
+			}
+		} while ( e < fname.m_length );
+		return table;
+	}
+
+	private static final void modinit(LuaValue module, LuaString modname) {
+		/* module._M = module */
+		module.set(_M, module);
+		int e = modname.lastIndexOf(_DOT);
+		module.set(_NAME, modname );
+		module.set(_PACKAGE, (e<0? EMPTYSTRING: modname.substring(0,e+1)) );
 	}
 }

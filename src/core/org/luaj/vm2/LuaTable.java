@@ -75,10 +75,10 @@ public class LuaTable extends LuaValue implements Metatable {
 	private static final LuaString N = valueOf("n");
 	
 	/** the array values */
-	protected LuaValue[] array;
+	private LuaValue[] array;
 	
 	/** the hash part */
-	protected Slot[] hash;
+	private Slot[] hash;
 	
 	/** the number of hash entries */
 	protected int hashEntries;

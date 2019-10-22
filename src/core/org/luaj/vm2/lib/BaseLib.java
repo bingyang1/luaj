@@ -110,6 +110,8 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 		env.set("tostring", new tostring());
 		env.set("type", new type());
 		env.set("xpcall", new xpcall());
+		env.set("setfenv", new setfenv());
+		env.set("getfenv", new getfenv());
 
 		next next;
 		env.set("next", next = new next());
@@ -152,7 +154,7 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 				System.gc();
 				return LuaValue.TRUE;
 			} else {
-				this.argerror("gc op");
+				argerror(1, "invalid option '" + s + "'");
 			}
 			return NIL;
 		}
@@ -173,16 +175,16 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 	// "error", // ( message [,level] ) -> ERR
 	static final class error extends TwoArgFunction {
 		public LuaValue call(LuaValue arg1, LuaValue arg2) {
-			throw arg1.isnil()? new LuaError(null, arg2.optint(1)):
-				arg1.isstring()? new LuaError(arg1.tojstring(), arg2.optint(1)):
-					new LuaError(arg1);
+			if (arg1.isnil()) throw new LuaError(NIL);
+			if (!arg1.isstring() || arg2.optint(1) == 0) throw new LuaError(arg1);
+			throw new LuaError(arg1.tojstring(), arg2.optint(1));
 		}
 	}
 
 	// "getmetatable", // ( object ) -> table
 	static final class getmetatable extends LibFunction {
 		public LuaValue call() {
-			return argerror(1, "value");
+			return argerror(1, "value expected");
 		}
 		public LuaValue call(LuaValue arg) {
 			LuaValue mt = arg.getmetatable();
@@ -260,10 +262,10 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 	// "rawequal", // (v1, v2) -> boolean
 	static final class rawequal extends LibFunction {
 		public LuaValue call() {
-			return argerror(1, "value");
+			return argerror(1, "value expected");
 		}
 		public LuaValue call(LuaValue arg) {
-			return argerror(2, "value");
+			return argerror(2, "value expected");
 		}
 		public LuaValue call(LuaValue arg1, LuaValue arg2) {
 			return valueOf(arg1.raweq(arg2));
@@ -271,12 +273,9 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 	}
 
 	// "rawget", // (table, index) -> value
-	static final class rawget extends LibFunction {
-		public LuaValue call() {
-			return argerror(1, "value");
-		}
+	static final class rawget extends TableLibFunction {
 		public LuaValue call(LuaValue arg) {
-			return argerror(2, "value");
+			return argerror(2, "value expected");
 		}
 		public LuaValue call(LuaValue arg1, LuaValue arg2) {
 			return arg1.checktable().rawget(arg2);
@@ -292,16 +291,16 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 	}
 
 	// "rawset", // (table, index, value) -> table
-	static final class rawset extends LibFunction {
+	static final class rawset extends TableLibFunction {
 		public LuaValue call(LuaValue table) {
-			return argerror(2,"value");
+			return argerror(2,"value expected");
 		}
 		public LuaValue call(LuaValue table, LuaValue index) {
-			return argerror(3,"value");
+			return argerror(3,"value expected");
 		}
 		public LuaValue call(LuaValue table, LuaValue index, LuaValue value) {
 			LuaTable t = table.checktable();
-			if (!index.isvalidkey()) argerror(2, "value");
+			if (!index.isvalidkey()) argerror(2, "table index is nil");
 			t.rawset(index, value);
 			return t;
 		}
@@ -321,9 +320,9 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 	}
 	
 	// "setmetatable", // (table, metatable) -> table
-	static final class setmetatable extends LibFunction {
+	static final class setmetatable extends TableLibFunction {
 		public LuaValue call(LuaValue table) {
-			return argerror(2,"value");
+			return argerror(2,"nil or table expected");
 		}
 		public LuaValue call(LuaValue table, LuaValue metatable) {
 			final LuaValue mt0 = table.checktable().getmetatable();
@@ -485,4 +484,72 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 			return 0xFF&bytes[offset++];
 		}
 	}
+
+
+	private final class setfenv extends TwoArgFunction {
+		@Override
+		public LuaValue call(LuaValue arg1, LuaValue arg2) {
+			LuaTable t = arg2.checktable();
+			if(Lua.LUA_FUNC_ENV) {
+				LuaValue f = getfenvobj(arg1);
+				if (!f.isthread() && !f.isclosure())
+					error("'setfenv' cannot change environment of given object");
+				f.setfenv(t);
+				return f;
+			}
+			if(Lua.LUA_LOCAL_ENV){
+				DebugLib.CallFrame frame = globals.running.callstack.getCallFrame(arg1.checkint());
+				if (frame == null)
+					return argerror(0, "function or level");
+				frame.setLocal(1 + frame.f.checkclosure().p.numparams,t);
+			}
+			return NONE;
+		}
+	}
+
+	private final class getfenv extends OneArgFunction {
+		@Override
+		public LuaValue call(LuaValue arg) {
+			if(Lua.LUA_FUNC_ENV) {
+				LuaValue f = getfenvobj(arg);
+				LuaValue e = f.getfenv();
+				return e != null ? e : NIL;
+			}
+			if(Lua.LUA_LOCAL_ENV){
+				DebugLib.CallFrame frame = globals.running.callstack.getCallFrame(arg.checkint());
+				if (frame == null)
+					return argerror(0, "function or level");
+				return frame.getLocal(1 + frame.f.checkclosure().p.numparams).arg(2);
+			}
+			return NONE;
+		}
+	}
+
+	private LuaValue getfenvobj(LuaValue arg) {
+		if ( arg.isfunction() )
+			return arg;
+		int level = arg.optint(0);
+		arg.argcheck(level>0, 1, "level must be non-negative");
+		/*if ( level == 0 )
+			return globals.running;*/
+		LuaValue func = arg;
+		DebugLib.CallStack callstack = (DebugLib.CallStack) globals.running.callstack;
+
+		// find the stack info
+		DebugLib.CallFrame frame;
+		if ( func.isnumber() ) {
+			frame = callstack.getCallFrame(func.toint());
+			if (frame == null)
+				return argerror(0, "function or level");
+			return frame.f;
+		} else if ( func.isfunction() ) {
+			return func;
+		} else {
+			return argerror(0, "function or level");
+		}
+		//arg.argcheck(func != null, 1, "invalid level");
+		//return func;
+	}
+
+
 }

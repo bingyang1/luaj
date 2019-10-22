@@ -99,8 +99,8 @@ public class LuaC extends Constants implements Globals.Compiler, Globals.Loader 
 		return (new CompileState()).luaY_parser(stream, chunkname);
 	}
 
-	public LuaFunction load(Prototype prototype, String chunkname, LuaValue env) throws IOException {
-		return new LuaClosure(prototype, env);
+	public LuaFunction load(Prototype prototype, String chunkname, Globals globals, LuaValue env) throws IOException {
+		return new LuaClosure(prototype, globals, env);
 	}
 
 	/** @deprecated
@@ -108,7 +108,7 @@ public class LuaC extends Constants implements Globals.Compiler, Globals.Loader 
 	 * or LuaC.compile(InputStream, String) and construct LuaClosure directly.
 	 */
 	public LuaValue load(InputStream stream, String chunkname, Globals globals) throws IOException {
-		return new LuaClosure(compile(stream, chunkname), globals);
+		return new LuaClosure(compile(stream, chunkname), globals, globals);
 	}
 
 	static class CompileState {

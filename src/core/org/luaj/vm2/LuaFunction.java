@@ -39,6 +39,15 @@ public class LuaFunction extends LuaValue {
 	
 	/** Shared static metatable for all functions and closures. */
 	public static LuaValue s_metatable;
+	private LuaValue env;
+
+	public LuaFunction() {
+		this.env = NIL;
+	}
+
+	public LuaFunction(LuaValue env) {
+		this.env = env;
+	}
 
 	public int type() {
 		return TFUNCTION;
@@ -77,7 +86,9 @@ public class LuaFunction extends LuaValue {
 	 */
 	public String classnamestub() {
 		String s = getClass().getName();
-		return s.substring(Math.max(s.lastIndexOf('.'),s.lastIndexOf('$'))+1);
+		int offset = Math.max(s.lastIndexOf('.'), s.lastIndexOf('$')) + 1;
+		if (s.charAt(offset) == '_') offset++;
+		return s.substring(offset);
 	}
 	
 	/** Return a human-readable name for this function.  Returns the last part of the class name by default.
@@ -86,4 +97,12 @@ public class LuaFunction extends LuaValue {
 	public String name() {
 		return classnamestub();
 	}
+	public LuaValue getfenv() {
+		return env;
+	}
+
+	public void setfenv(LuaValue env) {
+		this.env = env!=null? env: NIL;
+	}
+
 }

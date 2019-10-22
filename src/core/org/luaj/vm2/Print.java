@@ -215,6 +215,11 @@ public class Print extends Lua {
 			ps.print("  ; ");
 			printConstant(ps, f, bx);
 			break;
+			case OP_GETGLOBAL:
+			case OP_SETGLOBAL:
+				ps.print("  ; ");
+				printConstant( ps, f, bx );
+				break;
 		case OP_GETUPVAL:
 		case OP_SETUPVAL:
 			ps.print("  ; ");

@@ -141,7 +141,7 @@ public class Globals extends LuaTable {
 	/** Interface for module that converts a Prototype into a LuaFunction with an environment. */
 	public interface Loader {
 		/** Convert the prototype into a LuaFunction with the supplied environment. */
-		LuaFunction load(Prototype prototype, String chunkname, LuaValue env) throws IOException;
+		LuaFunction load(Prototype prototype, String chunkname, Globals globals, LuaValue env) throws IOException;
 	}
 
 	/** Interface for module that converts lua source text into a prototype. */
@@ -253,7 +253,7 @@ public class Globals extends LuaTable {
 	public LuaValue load(InputStream is, String chunkname, String mode, LuaValue environment) {
 		try {
 			Prototype p = loadPrototype(is, chunkname, mode);
-			return loader.load(p, chunkname, environment);
+			return loader.load(p, chunkname, this, environment);
 		} catch (LuaError l) {
 			throw l;
 		} catch (Exception e) {

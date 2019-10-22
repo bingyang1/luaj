@@ -3605,6 +3605,14 @@ public class LuaValue extends Varargs {
 		return checkmetatag(BNOT, "attempt to perform arithmetic on ").call(this);
 	}
 
+	public void setfenv(LuaValue env) {
+		typerror("function");
+	}
+
+	public LuaValue getfenv() {
+		typerror("function"); return null;
+	}
+
 	/** Varargs implemenation with no values.
 	 * <p>
 	 * This is an internal class not intended to be used directly.

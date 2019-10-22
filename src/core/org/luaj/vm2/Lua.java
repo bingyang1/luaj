@@ -35,6 +35,15 @@ public class Lua {
 	/** use return values from previous op */
 	public static final int LUA_MULTRET = -1;
 
+	/** use func.env **/
+	public static final boolean LUA_FUNC_ENV = true;
+
+	/** use first local _ENV **/
+	public static final boolean LUA_LOCAL_ENV = true;
+
+	/** use t.filed **/
+	public static final boolean LUA_JAVA_OO = true;
+
 	// from lopcodes.h
 
 	/*===========================================================================
@@ -239,8 +248,11 @@ public class Lua {
 	public static final int OP_SHL = 43;// <<
 	public static final int OP_SHR = 44;// >>
 	public static final int OP_BNOT = 45;// ~
+	public static final int OP_GETGLOBAL = 46; /*	A Bx	R(A) := Gbl[Kst(Bx)]				*/
+	public static final int OP_SETGLOBAL = 47; /*	A Bx	Gbl[Kst(Bx)] := R(A)				*/
+	public static final int OP_NEWLIST = 48; /*	A B C	R(A) := {} (size = B,C)				*/
 
-	public static final int OP_EXTRAARG = 46; /* Ax	extra (larger) argument for previous opcode	*/
+	public static final int OP_EXTRAARG = 49; /* Ax	extra (larger) argument for previous opcode	*/
 
 
 	public static final int NUM_OPCODES	= OP_EXTRAARG + 1;
@@ -335,7 +347,12 @@ public class Lua {
 			  (0<<7) | (1<<6) | (OpArgK<<4) | (OpArgK<<2) | (iABC),		/* OP_SHL */
 			  (0<<7) | (1<<6) | (OpArgK<<4) | (OpArgK<<2) | (iABC),		/* OP_SHR */
 			  (0<<7) | (1<<6) | (OpArgR<<4) | (OpArgN<<2) | (iABC),		/* OP_BNOT */
-		 (0<<7) | (0<<6) | (OpArgU<<4) | (OpArgU<<2) | (iAx),		/* OP_EXTRAARG */
+			  (0<<7) | (1<<6) | (OpArgK<<4) | (OpArgN<<2) | (iABx),		/* OP_GETGLOBAL */
+			  (0<<7) | (0<<6) | (OpArgK<<4) | (OpArgN<<2) | (iABx),		/* OP_SETGLOBAL */
+
+			  (0<<7) | (1<<6) | (OpArgU<<4) | (OpArgN<<2) | (iABx),		/* OP_NEWLIST */
+
+			  (0<<7) | (0<<6) | (OpArgU<<4) | (OpArgU<<2) | (iAx),		/* OP_EXTRAARG */
 	  };
 
 	public static int getOpMode(int m) {

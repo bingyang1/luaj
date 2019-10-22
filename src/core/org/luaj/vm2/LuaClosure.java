@@ -23,6 +23,8 @@ package org.luaj.vm2;
 
 import android.util.Log;
 
+import org.luaj.vm2.lib.DebugLib;
+
 /**
  * Extension of {@link LuaFunction} which executes lua bytecode. 
  * <p>
@@ -101,7 +103,8 @@ public class LuaClosure extends LuaFunction {
 	 * @param p the Prototype to construct this Closure for. 
 	 * @param env the environment to associate with the closure.
 	 */
-	public LuaClosure(Prototype p, LuaValue env) {
+	public LuaClosure(Prototype p,Globals globals, LuaValue env) {
+		super( env );
 		this.p = p;
 		if (p.upvalues == null || p.upvalues.length == 0)
 			this.upValues = NOUPVALUES;
@@ -109,7 +112,7 @@ public class LuaClosure extends LuaFunction {
 			this.upValues = new UpValue[p.upvalues.length];
 			this.upValues[0] = new UpValue(new LuaValue[] {env}, 0);
 		}
-		globals = env instanceof Globals? (Globals) env: null;	
+		this.globals = globals;
 	}
 
 	public static void setCheckType(int checkType) {
@@ -216,7 +219,6 @@ public class LuaClosure extends LuaFunction {
 				a = ((i>>6) & 0xff);
 				
 				// process the op code
-				Log.i("luaj", "execute: "+(i & 0x3f));
 				switch ( i & 0x3f ) {
 				
 				case Lua.OP_MOVE:/*	A B	R(A):= R(B)					*/
@@ -230,7 +232,6 @@ public class LuaClosure extends LuaFunction {
 					}
 					v1 = stack[a];
 					v2 = k[i >>> 14];
-					//Log.i("luaj", "execute:set local value "+v1+";"+v2);
 					if(v1!=null&&v2!=null&&v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
 						throw new LuaError(String.format("set local value type error: %s expected, got %s",v1.typename(),v2.typename()));
 					stack[a] = v2;
@@ -245,7 +246,6 @@ public class LuaClosure extends LuaFunction {
 					}
 					v1 = stack[a];
 					v2 = (i>>>23!=0)? LuaValue.TRUE: LuaValue.FALSE;
-					//Log.i("luaj", "execute:set local value "+v1+";"+v2);
 					if(v1!=null&&v1.type()!=LuaValue.TNIL&&v1.type()!=LuaValue.TBOOLEAN)
 						throw new LuaError(String.format("set local value type error: %s expected, got %s",v1.typename(),v2.typename()));
 					stack[a] = v2;
@@ -257,8 +257,24 @@ public class LuaClosure extends LuaFunction {
 					for ( b=i>>>23; b-->=0; )
 						stack[a++] = LuaValue.NIL;
 					continue;
-					
-				case Lua.OP_GETUPVAL: /*	A B	R(A):= UpValue[B]				*/
+
+					case Lua.OP_GETGLOBAL: /*	A Bx	R(A):= Gbl[Kst(Bx)]				*/
+						stack[a] = getfenv().get(k[i>>>14]);
+						continue;
+					case Lua.OP_SETGLOBAL: /*	A Bx	Gbl[Kst(Bx)]:= R(A)				*/
+						if((checkType & checkglobal)==0){
+						    getfenv().set(k[i>>>14], stack[a]);
+						    continue;
+						}
+						k1 = k[i>>>14];
+						v1 = getfenv().get(k1);
+						v2 = stack[a];
+						if(v1!=null&&v2!=null&&v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
+							throw new LuaError(String.format("set '%s' value type error: %s expected, got %s",k1.tojstring(),v1.typename(),v2.typename()));
+						getfenv().set(k1,v2);
+						continue;
+
+					case Lua.OP_GETUPVAL: /*	A B	R(A):= UpValue[B]				*/
 	                stack[a] = upValues[i>>>23].getValue();
 	                continue;
 					
@@ -279,7 +295,6 @@ public class LuaClosure extends LuaFunction {
 	                k1=((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]);
 					v1=upValues[a].getValue().get(k1);
 					v2=(c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c];
-					//Log.i("luaj", "execute:set up tab value "+k1.tostring()+";"+v1.tostring()+";"+v2.tostring());
 					if(v1!=null&&v2!=null&&v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
 						throw new LuaError(String.format("set '%s' value type error: %s expected, got %s",k1.tojstring(),v1.typename(),v2.typename()));
 					upValues[a].getValue().set(k1,v2);
@@ -292,7 +307,6 @@ public class LuaClosure extends LuaFunction {
 					}
 					v1 = upValues[i>>>23].getValue();
 					v2 = stack[a];
-					//Log.i("luaj", "execute:set up value "+v1.tostring()+";"+v2.tostring());
 					if(v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
 						throw new LuaError(String.format("set up value type error: %s expected, got %s",v1.typename(),v2.typename()));
 					upValues[i>>>23].setValue(v2);
@@ -307,7 +321,6 @@ public class LuaClosure extends LuaFunction {
 					k1=((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]);
 					v1 = stack[a].get(k1);
 					v2 = (c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c];
-					//Log.i("luaj", "execute:set local tab value "+k1.tostring()+";"+v1.tostring()+";"+v2.tostring());
 					if(v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
 						throw new LuaError(String.format("set '%s' value type error: %s expected, got %s",k1.tojstring(),v1.typename(),v2.typename()));
 					stack[a].set(k1,v2);
@@ -316,7 +329,11 @@ public class LuaClosure extends LuaFunction {
 				case Lua.OP_NEWTABLE: /*	A B C	R(A):= {} (size = B,C)				*/
 					stack[a] = new LuaTable(i>>>23,(i>>14)&0x1ff);
 					continue;
-					
+
+					case Lua.OP_NEWLIST: /*	A B C	R(A):= {} (size = B,C)				*/
+						stack[a] = new LuaList(i>>>23);
+						continue;
+
 				case Lua.OP_SELF: /*	A B C	R(A+1):= R(B): R(A):= R(B)[RK(C)]		*/
 					stack[a+1] = (o = stack[i>>>23]);
 					stack[a] = o.get((c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c]);
@@ -441,6 +458,7 @@ public class LuaClosure extends LuaFunction {
 					continue;
 					
 				case Lua.OP_CALL: /*	A B C	R(A), ... ,R(A+C-2):= R(A)(R(A+1), ... ,R(A+B-1)) */
+
 					switch ( i & (Lua.MASK_B | Lua.MASK_C) ) {
 					case (1<<Lua.POS_B) | (0<<Lua.POS_C): v=stack[a].invoke(NONE); top=a+v.narg(); continue;
 					case (2<<Lua.POS_B) | (0<<Lua.POS_C): v=stack[a].invoke(stack[a+1]); top=a+v.narg(); continue;
@@ -557,7 +575,7 @@ public class LuaClosure extends LuaFunction {
 				case Lua.OP_CLOSURE: /*	A Bx	R(A):= closure(KPROTO[Bx])	*/
 					{
 						Prototype newp = p.p[i>>>14];
-						LuaClosure ncl = new LuaClosure(newp, globals);
+						LuaClosure ncl = new LuaClosure(newp, globals, getfenv());
 						Upvaldesc[] uv = newp.upvalues;
 						for ( int j=0, nup=uv.length; j<nup; ++j ) {
 							if (uv[j].instack)  /* upvalue refes to local variable? */
@@ -588,10 +606,12 @@ public class LuaClosure extends LuaFunction {
 				}
 			}
 		} catch ( LuaError le ) {
+			le.printStackTrace();
 			if (le.traceback == null)
 				processErrorHooks(le, p, pc);
 			throw le;
 		} catch ( Exception e ) {
+			e.printStackTrace();
 			LuaError le = new LuaError(e);
 			processErrorHooks(le, p, pc);
 			throw le;
@@ -628,9 +648,26 @@ public class LuaClosure extends LuaFunction {
 	}
 
 	private void processErrorHooks(LuaError le, Prototype p, int pc) {
-		le.fileline = (p.source != null? p.source.tojstring(): "?") + ":" 
-			+ (p.lineinfo != null && pc >= 0 && pc < p.lineinfo.length? String.valueOf(p.lineinfo[pc]): "?");
+		String file = "?";
+		int line = -1;
+		{
+			DebugLib.CallFrame frame = null;
+			if (globals != null && globals.debuglib != null) {
+				frame = globals.debuglib.getCallFrame(le.level);
+				if (frame != null) {
+					String src = frame.shortsource();
+					file = src != null ? src : "?";
+					line = frame.currentline();
+				}
+			}
+			if (frame == null) {
+				file = p.source != null? p.source.tojstring(): "?";
+				line = p.lineinfo != null && pc >= 0 && pc < p.lineinfo.length ? p.lineinfo[pc] : -1;
+			}
+		}
+		le.fileline = file + ":" + line;
 		le.traceback = errorHook(le.getMessage(), le.level);
+
 	}
 	
 	private UpValue findupval(LuaValue[] stack, short idx, UpValue[] openups) {

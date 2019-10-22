@@ -21,11 +21,8 @@
 ******************************************************************************/
 package org.luaj.vm2.compiler;
 
-import android.util.Log;
-
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Hashtable;
 
 import org.luaj.vm2.LocVars;
@@ -114,13 +111,14 @@ public class LexState extends Constants {
 	  VKNUM = 5,	/* nval = numerical value */
 	  VNONRELOC = 6,	/* info = result register */
 	  VLOCAL = 7,	/* info = local register */
-	  VUPVAL = 8,       /* info = index of upvalue in `upvalues' */
-	  VINDEXED = 9,	/* info = table register, aux = index register (or `k') */
-	  VJMP = 10,		/* info = instruction pc */
-	  VRELOCABLE = 11,	/* info = instruction pc */
-	  VCALL = 12,	/* info = instruction pc */
-	  VVARARG = 13;	/* info = instruction pc */
-	
+	     VGLOBAL = 8,	/* info = index of table, aux = index of global name in `k' */
+	  VUPVAL = 9,       /* info = index of upvalue in `upvalues' */
+	  VINDEXED = 10,	/* info = table register, aux = index register (or `k') */
+	  VJMP = 11,		/* info = instruction pc */
+	  VRELOCABLE = 12,	/* info = instruction pc */
+	  VCALL = 13,	/* info = instruction pc */
+	  VVARARG = 14;	/* info = instruction pc */
+
 	/* semantics information */
 	private static class SemInfo {
 		LuaValue r;
@@ -262,7 +260,7 @@ public class LexState extends Constants {
 	}
 	
 	private boolean isspace(int c) {
-		return (c <= ' ');
+		return testprop(c, MASK(SPACEBIT));
 	}
 	
 	
@@ -781,7 +779,7 @@ public class LexState extends Constants {
 					LuaString ts;
 					do {
 						save_and_next();
-					} while (isalnum(current) || current == '_');
+					} while (isalnum(current));
 					ts = newstring(buff, 0, nbuff);
 					if ( RESERVED.containsKey(ts) )
 						return ((Integer)RESERVED.get(ts)).intValue();
@@ -1045,11 +1043,15 @@ public class LexState extends Constants {
 		LuaString varname = this.str_checkname();
 		FuncState fs = this.fs;
 		if (FuncState.singlevaraux(fs, varname, var, 1) == VVOID) { /* global name? */
-			expdesc key = new expdesc();
-		    FuncState.singlevaraux(fs, this.envn, var, 1);  /* get environment variable */
-		    _assert(var.k == VLOCAL || var.k == VUPVAL);
-		    this.codestring(key, varname);  /* key is variable name */
-		    fs.indexed(var, key);  /* env[varname] */
+			if(Lua.LUA_FUNC_ENV){
+				var.u.info = fs.stringK(varname); /* info points to global name */
+			} else {
+				expdesc key = new expdesc();
+				FuncState.singlevaraux(fs, this.envn, var, 1);  /* get environment variable */
+				_assert(var.k == VLOCAL || var.k == VUPVAL);
+				this.codestring(key, varname);  /* key is variable name */
+				fs.indexed(var, key);  /* env[varname] */
+			}
 		}
 	}
 	
@@ -1337,7 +1339,33 @@ public class LexState extends Constants {
 		SETARG_B(i, luaO_int2fb(cc.na)); /* set initial array size */
 		SETARG_C(i, luaO_int2fb(cc.nh));  /* set initial table size */
 	}
-	
+
+	void constructorList(expdesc t) {
+		/* constructor -> ?? */
+		FuncState fs = this.fs;
+		int line = this.linenumber;
+		int pc = fs.codeABx(Lua.OP_NEWLIST, 0, 0);
+		ConsControl cc = new ConsControl();
+		cc.na = cc.nh = cc.tostore = 0;
+		cc.t = t;
+		t.init(VRELOCABLE, pc);
+		cc.v.init(VVOID, 0); /* no value (yet) */
+		fs.exp2nextreg(t); /* fix it at stack top (for gc) */
+		this.checknext('[');
+		do {
+			_assert (cc.v.k == VVOID || cc.tostore > 0);
+			if (this.t.token == ']')
+				break;
+			fs.closelistfield(cc);
+			 /* constructor_part -> listfield */
+			this.listfield(cc);
+		} while (this.testnext(',') || this.testnext(';'));
+		this.check_match(']', '[', line);
+		fs.lastlistfield(cc);
+		InstructionPtr i = new InstructionPtr(fs.f.code, pc);
+		SETARG_B(i, luaO_int2fb(cc.na)); /* set initial array size */
+	}
+
 	/*
 	** converts an integer to a "floating point byte", represented as
 	** (eeeeexxx), where the real value is (1xxx) * 2^(eeeee - 1) if
@@ -1390,6 +1418,7 @@ public class LexState extends Constants {
 		FuncState new_fs = new FuncState();
 		BlockCnt bl = new BlockCnt();
 		new_fs.f = addprototype();
+
 		new_fs.f.linedefined = line;
 		open_func(new_fs, bl);
 		this.checknext('(');
@@ -1399,13 +1428,13 @@ public class LexState extends Constants {
 		}
 		this.parlist();
 		this.checknext(')');
-
-		this.new_localvar(this.envn);
-		expdesc env = new expdesc();
-		FuncState.singlevaraux(fs, this.envn, env, 1);
-		this.adjust_assign(1, 1, env);
-		this.adjustlocalvars(1);
-
+        if(Lua.LUA_LOCAL_ENV) {
+			this.new_localvar(this.envn);
+			expdesc env = new expdesc();
+			FuncState.singlevaraux(fs, this.envn, env, 1);
+			this.adjust_assign(1, 1, env);
+			this.adjustlocalvars(1);
+		}
 		this.statlist();
 		new_fs.f.lastlinedefined = this.linenumber;
 		this.check_match(TK_END, TK_FUNCTION, line);
@@ -1579,6 +1608,10 @@ public class LexState extends Constants {
 			this.constructor(v);
 			return;
 		}
+			case '[': { /* constructor */
+				this.constructorList(v);
+				return;
+			}
 		case TK_FUNCTION: {
 			this.next();
 			this.body(v, false, this.linenumber);
@@ -1794,7 +1827,6 @@ public class LexState extends Constants {
 		}
 	}
 
-
 	void assignment (LHS_assign lh, int nvars) {
 		expdesc e = new expdesc();
 		this.check_condition(VLOCAL <= lh.v.k && lh.v.k <= VINDEXED,
@@ -1815,12 +1847,12 @@ public class LexState extends Constants {
 		      this.adjust_assign(nvars, nexps, e);
 		      if (nexps > nvars)
 		        this.fs.freereg -= nexps - nvars;  /* remove extra values */
-	    }
-	    else {
-	    	fs.setoneret(e);  /* close last expression */
-	    	fs.storevar(lh.v, e);
-	    	return;  /* avoid default */
-	    }
+	        }
+	        else {
+	    	  fs.setoneret(e);  /* close last expression */
+	    	  fs.storevar(lh.v, e);
+	    	  return;  /* avoid default */
+	        }
 	  }
 	  e.init(VNONRELOC, this.fs.freereg-1);  /* default assignment */
 	  fs.storevar(lh.v, e);
@@ -2376,19 +2408,26 @@ public class LexState extends Constants {
 
 	/*
 	** compiles the main function, which is a regular vararg function with an
-	** upvalue named LUA_ENV
+	** upvalue named LUA_FUNC_ENV
 	*/
 	public void mainfunc(FuncState funcstate) {
-		  BlockCnt bl = new BlockCnt();
-		  open_func(funcstate, bl);
-		  fs.f.is_vararg = 1;  /* main function is always vararg */
-		  expdesc v = new expdesc();
-		  v.init(VLOCAL, 0);  /* create and... */
-		  fs.newupvalue(envn, v);  /* ...set environment upvalue */
-		  next();  /* read first token */
-		  statlist();  /* parse main body */
-		  check(TK_EOS);
-		  close_func();
+		BlockCnt bl = new BlockCnt();
+		open_func(funcstate, bl);
+		fs.f.is_vararg = 1;  /* main function is always vararg */
+		expdesc v = new expdesc();
+		v.init(VLOCAL, 0);  /* create and... */
+		fs.newupvalue(envn, v);  /* ...set environment upvalue */
+		if(Lua.LUA_LOCAL_ENV) {
+			this.new_localvar(this.envn);
+			expdesc env = new expdesc();
+			FuncState.singlevaraux(fs, this.envn, env, 1);
+			this.adjust_assign(1, 1, env);
+			this.adjustlocalvars(1);
+		}
+		next();  /* read first token */
+		statlist();  /* parse main body */
+		check(TK_EOS);
+		close_func();
 	}
 	
 	/* }====================================================================== */

@@ -176,8 +176,10 @@ public class FuncState extends Constants {
 		} else { /* not found at current level; try upvalues */
 		    int idx = fs.searchupvalue(n);  /* try existing upvalues */
 		    if (idx < 0) {  /* not found? */
-		        if (singlevaraux(fs.prev, n, var, 0) == LexState.VVOID) /* try upper levels */
-		          return LexState.VVOID;  /* not found; is a global */
+		        if (singlevaraux(fs.prev, n, var, 0) == LexState.VVOID) /* try upper levels */{
+					var.init(LexState.VGLOBAL, NO_REG);
+					return LexState.VVOID;  /* not found; is a global */
+				}
 		        /* else was LOCAL or UPVAL */
 		        idx  = fs.newupvalue(n, var);  /* will be a new upvalue */
 		    }
@@ -541,6 +543,11 @@ public class FuncState extends Constants {
 			e.k = LexState.VRELOCABLE;
 			break;
 		}
+			case LexState.VGLOBAL: {
+				e.u.info = this.codeABx(OP_GETGLOBAL, 0, e.u.info);
+				e.k = LexState.VRELOCABLE;
+				break;
+			}
 		case LexState.VINDEXED: {
 			int op = OP_GETTABUP;  /* assume 't' is in an upvalue */
 			this.freereg(e.u.ind_idx);
@@ -715,6 +722,12 @@ public class FuncState extends Constants {
 			this.codeABC(OP_SETUPVAL, e, var.u.info, 0);
 			break;
 		}
+			case LexState.VGLOBAL: {
+				int e = this.exp2anyreg(ex);
+				this.codeABx(OP_SETGLOBAL, e, var.u.info);
+				break;
+			}
+
 		case LexState.VINDEXED: {
 			int op = (var.u.ind_vt == LexState.VLOCAL) ? OP_SETTABLE : OP_SETTABUP;
 			int e = this.exp2RK(ex);
