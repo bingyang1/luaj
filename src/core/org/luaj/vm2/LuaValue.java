@@ -21,7 +21,11 @@
 ******************************************************************************/
 package org.luaj.vm2;
 
+import android.view.KeyEvent;
+
 import org.luaj.vm2.Varargs;
+import org.luaj.vm2.lib.jse.CoerceJavaToLua;
+import org.luaj.vm2.lib.jse.CoerceLuaToJava;
 
 /**
  * Base class for all concrete lua type values.  
@@ -560,7 +564,7 @@ public class LuaValue extends Varargs {
 	 * @see #isuserdata(Class)
 	 * @see #TUSERDATA
 	 */
-	public Object  touserdata(Class c)   { return null; }
+	public <T>T  touserdata(Class<T> c)   { return null; }
 
 	/** 
 	 * Convert the value to a human readable string using {@link #tojstring()}
@@ -3400,7 +3404,7 @@ public class LuaValue extends Varargs {
 	 * @throws LuaError when called.  
 	 */
     private void indexerror() {
-		error( "attempt to index ? (a "+typename()+" value)" );
+		error( "attempt to index (a "+typename()+" value)" );
 	}
  	
 	/** Construct a {@link Varargs} around an array of {@link LuaValue}s.
@@ -3611,6 +3615,23 @@ public class LuaValue extends Varargs {
 
 	public LuaValue getfenv() {
 		typerror("function"); return null;
+	}
+
+	public Object jcall(Object ...args) {
+		int l = args.length;
+		LuaValue[] as = new LuaValue[l];
+		for (int i = 0; i < l; i++) {
+			as[i]= CoerceJavaToLua.coerce(args[i]);
+		}
+		return CoerceLuaToJava.coerce(invoke(as).arg1(),Object.class);
+	}
+
+	public void jset(String key, Object value) {
+		set(key,CoerceJavaToLua.coerce(value));
+	}
+
+	public Object jget(String key) {
+		return CoerceLuaToJava.coerce(get(key),Object.class);
 	}
 
 	/** Varargs implemenation with no values.

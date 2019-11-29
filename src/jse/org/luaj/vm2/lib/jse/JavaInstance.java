@@ -107,10 +107,26 @@ class JavaInstance extends LuaUserdata {
                 return m;
             }
         }
+        if (type == 0 || type == TYPE_CLASS) {
+            if(m_instance instanceof Class){
+                Class c = jclass.getInnerClass(key);
+                if (c != null) {
+                    if (type == 0)
+                        jclass.typeCache.put(key, TYPE_CLASS);
+                    JavaClass ret = JavaClass.forClass(c);
+                    if (Modifier.isStatic(c.getModifiers())) {
+                        jclass.finalValueCache.put(key, ret);
+                    }
+                    return ret;
+                }
+            }
+        }
         if (type == 0 || type == TYPE_GETTER) {
             LuaValue m = jclass.getterCache.get(key);
             if (m == null) {
                 String k = key.tojstring();
+                if(k.equals("class"))
+                    return CoerceJavaToLua.coerce(m_instance.getClass());
                 if (Character.isLowerCase(k.charAt(0)))
                     k = Character.toUpperCase(k.charAt(0)) + k.substring(1);
                 m = jclass.getMethod(CoerceJavaToLua.coerce("get" + k));
@@ -126,6 +142,7 @@ class JavaInstance extends LuaUserdata {
                 return m.call();
             }
         }
+
         if (type == 0 || type == TYPE_GETVALUE) {
             if (m_instance instanceof Map) {
                 Map map = (Map) m_instance;
@@ -140,18 +157,7 @@ class JavaInstance extends LuaUserdata {
                 return CoerceJavaToLua.coerce(list.get(key.checkint()));
             }
         }
-        if (type == 0 || type == TYPE_CLASS) {
-            Class c = jclass.getInnerClass(key);
-            if (c != null) {
-                if (type == 0)
-                    jclass.typeCache.put(key, TYPE_CLASS);
-                JavaClass ret = JavaClass.forClass(c);
-                if (Modifier.isStatic(c.getModifiers())) {
-                    jclass.finalValueCache.put(key, ret);
-                }
-                return ret;
-            }
-        }
+
         return super.get(key);
     }
 

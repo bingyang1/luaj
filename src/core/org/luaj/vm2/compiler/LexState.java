@@ -21,8 +21,12 @@
 ******************************************************************************/
 package org.luaj.vm2.compiler;
 
+import com.myopicmobile.textwarrior.common.Pair;
+
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Hashtable;
 
 import org.luaj.vm2.LocVars;
@@ -64,7 +68,8 @@ public class LexState extends Constants {
 	private static final int MAX_INT = Integer.MAX_VALUE-2;
 	private static final int UCHAR_MAX = 255; // TODO, convert to unicode CHAR_MAX? 
 	private static final int LUAI_MAXCCALLS = 200;
-	
+	public int lastidx;
+
 	private static final String LUA_QS(String s) { return "'"+s+"'"; }
 	private static final String LUA_QL(Object o) { return LUA_QS(String.valueOf(o)); }
 	
@@ -102,7 +107,7 @@ public class LexState extends Constants {
 		OPR_MINUS=0, OPR_NOT=1, OPR_LEN=2, OPR_NOUNOPR=3,OPR_BNOT=4;
 
 	/* exp kind */
-	static final int 	  
+	public static final int
 	  VVOID = 0,	/* no value */
 	  VNIL = 1,
 	  VTRUE = 2,
@@ -112,12 +117,13 @@ public class LexState extends Constants {
 	  VNONRELOC = 6,	/* info = result register */
 	  VLOCAL = 7,	/* info = local register */
 	     VGLOBAL = 8,	/* info = index of table, aux = index of global name in `k' */
-	  VUPVAL = 9,       /* info = index of upvalue in `upvalues' */
-	  VINDEXED = 10,	/* info = table register, aux = index register (or `k') */
-	  VJMP = 11,		/* info = instruction pc */
-	  VRELOCABLE = 12,	/* info = instruction pc */
-	  VCALL = 13,	/* info = instruction pc */
-	  VVARARG = 14;	/* info = instruction pc */
+		 VENV = 9,	/* info = index of table, aux = index of global name in `k' */
+	  VUPVAL = 10,       /* info = index of upvalue in `upvalues' */
+	  VINDEXED = 11,	/* info = table register, aux = index register (or `k') */
+	  VJMP = 12,		/* info = instruction pc */
+	  VRELOCABLE = 13,	/* info = instruction pc */
+	  VCALL = 14,	/* info = instruction pc */
+	  VVARARG = 15;	/* info = instruction pc */
 
 	/* semantics information */
 	private static class SemInfo {
@@ -134,7 +140,8 @@ public class LexState extends Constants {
 			this.seminfo.ts = other.seminfo.ts;
 		}
 	};
-	
+
+	int currentidx;  /* current character (charint) */
 	int current;  /* current character (charint) */
 	int linenumber;  /* input line counter */
 	int lastline;  /* line of last token `consumed' */
@@ -262,8 +269,13 @@ public class LexState extends Constants {
 	private boolean isspace(int c) {
 		return testprop(c, MASK(SPACEBIT));
 	}
-	
-	
+    private boolean bool;
+	public LexState(LuaC.CompileState state, InputStream stream, boolean bool) {
+		this.z = stream;
+		this.buff = new char[32];
+		this.L = state;
+		this.bool=bool;
+	}
 	public LexState(LuaC.CompileState state, InputStream stream) {
 		this.z = stream;
 		this.buff = new char[32];
@@ -273,6 +285,7 @@ public class LexState extends Constants {
 	void nextChar() {
 		try {
  			current = z.read();
+			currentidx++;
 		} catch ( IOException e ) {
 			e.printStackTrace();
 			current = EOZ;
@@ -314,18 +327,29 @@ public class LexState extends Constants {
 		case TK_NAME:
 		case TK_STRING:
 		case TK_NUMBER:
-			return new String( buff, 0, nbuff );
+			return LuaString.valueOf( buff, 0, nbuff ).tojstring();
 		default:
 			return token2str( token );
 		}
 	}
-
+    public static String errormsg;
+	public static int errorline;
+	public static int erroridx;
 	void lexerror( String msg, int token ) {
+		if(bool){
+			errormsg=msg;
+			errorline=linenumber;
+			erroridx=currentidx;
+			return;
+		}
 		String cid = Lua.chunkid( source.tojstring() );
-		L.pushfstring( cid+":"+linenumber+": "+msg );
 		if ( token != 0 )
-			L.pushfstring( "syntax error: "+msg+" near "+txtToken(token) );
-		throw new LuaError(cid+":"+linenumber+": "+msg);
+			msg=L.pushfstring( linenumber+": syntax error: "+msg+" near "+txtToken(token) );
+		else
+			msg=L.pushfstring( cid+":"+linenumber+": "+msg );
+
+
+		throw new LuaError(msg);
 	}
 
 	void syntaxerror( String msg ) {
@@ -338,7 +362,12 @@ public class LexState extends Constants {
 	}
 
 	LuaString newstring( char[] chars, int offset, int len ) {
-		return L.newTString(new String(chars, offset, len));
+		LuaString s = L.newTString(LuaString.valueOf(chars, offset, len));
+		if(bool){
+			currentidx-=len;
+			currentidx+=s.tojstring().length();
+		}
+		return s;
 	}
 
 	void inclinenumber() {
@@ -525,12 +554,12 @@ public class LexState extends Constants {
 			case '\r': {
 				save('\n');
 				inclinenumber();
-				if (seminfo == null)
+				if (seminfo == null&&!bool)
 					nbuff = 0; /* avoid wasting space */
 				break;
 			}
 			default: {
-				if (seminfo != null)
+				if (seminfo != null||bool)
 					save_and_next();
 				else
 					nextChar();
@@ -538,7 +567,9 @@ public class LexState extends Constants {
 			}
 		}
 		if (seminfo != null)
-			seminfo.ts =  L.newTString(LuaString.valueOf(buff, 2 + sep, nbuff - 2 * (2 + sep)));
+			seminfo.ts = newstring(buff, 2 + sep, nbuff - 2 * (2 + sep));
+		else if(bool)
+			newstring(buff, 2 + sep, nbuff - 2 * (2 + sep));
 	}
 
 	int hexvalue(int c) {
@@ -635,7 +666,8 @@ public class LexState extends Constants {
 			}
 		}
 		save_and_next(); /* skip delimiter */
-		seminfo.ts = L.newTString(LuaString.valueOf(buff, 1, nbuff-2));
+		seminfo.ts = newstring(buff, 1, nbuff-2);
+		//seminfo.ts = L.newTString(LuaString.valueOf(buff, 1, nbuff-2));
 	}
 
 	int llex(SemInfo seminfo) {
@@ -655,7 +687,7 @@ public class LexState extends Constants {
 				nextChar();
 				if (current == '[') {
 					int sep = skip_sep();
-					nbuff = 0; /* `skip_sep' may dirty the buffer */
+					//nbuff = 0; /* `skip_sep' may dirty the buffer */
 					if (sep >= 0) {
 						read_long_string(null, sep); /* long comment */
 						nbuff = 0;
@@ -663,8 +695,15 @@ public class LexState extends Constants {
 					}
 				}
 				/* else short comment */
-				while (!currIsNewline() && current != EOZ)
-					nextChar();
+				if(bool){
+					while (!currIsNewline() && current != EOZ)
+						save_and_next();
+					newstring(buff, 0, nbuff);
+					nbuff = 0;
+				} else {
+					while (!currIsNewline() && current != EOZ)
+						nextChar();
+				}
 				continue;
 			}
 			case '[': {
@@ -799,6 +838,7 @@ public class LexState extends Constants {
 
 	void next() {
 		lastline = linenumber;
+		lastidx=currentidx;
 		if (lookahead.token != TK_EOS) { /* is there a look-ahead token? */
 			t.set( lookahead ); /* use this one */
 			lookahead.token = TK_EOS; /* and discharge it */
@@ -1008,7 +1048,9 @@ public class LexState extends Constants {
 		Prototype f = fs.f;
 		if (f.locvars == null || fs.nlocvars + 1 > f.locvars.length)
 			f.locvars = realloc( f.locvars, fs.nlocvars*2+1 );
-		f.locvars[fs.nlocvars] = new LocVars(varname,0,0);
+		LocVars var = new LocVars(varname,0,0);
+		var.startidx = this.lastidx;
+		f.locvars[fs.nlocvars] = var;
 		return fs.nlocvars++;
 	}
 	
@@ -1029,7 +1071,8 @@ public class LexState extends Constants {
 		FuncState fs = this.fs;
 		fs.nactvar = (short) (fs.nactvar + nvars);
 		for (; nvars > 0; nvars--) {
-			fs.getlocvar(fs.nactvar - nvars).startpc = fs.pc;
+			LocVars var = fs.getlocvar(fs.nactvar - nvars);
+			var.startpc = fs.pc;
 		}
 	}
 
@@ -1038,16 +1081,38 @@ public class LexState extends Constants {
 		while (fs.nactvar > tolevel)
 			fs.getlocvar(--fs.nactvar).endpc = fs.pc;
 	}
-	
+	public static ArrayList<LuaString> globals=new ArrayList<>();
+	public static HashMap<String, ArrayList<Pair>> valueMap = new HashMap<>();
 	void singlevar(expdesc var) {
 		LuaString varname = this.str_checkname();
 		FuncState fs = this.fs;
-		if (FuncState.singlevaraux(fs, varname, var, 1) == VVOID) { /* global name? */
-			if(Lua.LUA_FUNC_ENV){
+		int vartype = FuncState.singlevaraux(fs, varname, var, 1);
+		if(bool){
+			String n = varname.tojstring();
+			ArrayList<Pair> a = valueMap.get(n);
+			if (a == null) {
+				a = new ArrayList<>();
+				valueMap.put(n, a);
+			}
+			a.add(new Pair(lastidx, vartype));
+		}
+
+		if( vartype == VVOID && Lua.LUA_FUNC_ENV){
+			if(varname.eq_b(this.envn)){
+				var.init(VENV,NO_REG);
+				return;
+			}
+		}
+
+		if ( vartype == VVOID) { /* global name? */
+			if(bool)
+			    globals.add(varname);
+			expdesc key = new expdesc();
+			vartype = FuncState.singlevaraux(fs, this.envn, var, 1);  /* get environment variable */
+			if(Lua.LUA_FUNC_ENV&&vartype!=VLOCAL){
+				var.init(VGLOBAL,fs.stringK(varname));
 				var.u.info = fs.stringK(varname); /* info points to global name */
 			} else {
-				expdesc key = new expdesc();
-				FuncState.singlevaraux(fs, this.envn, var, 1);  /* get environment variable */
 				_assert(var.k == VLOCAL || var.k == VUPVAL);
 				this.codestring(key, varname);  /* key is variable name */
 				fs.indexed(var, key);  /* env[varname] */
@@ -1420,6 +1485,7 @@ public class LexState extends Constants {
 		new_fs.f = addprototype();
 
 		new_fs.f.linedefined = line;
+		new_fs.f.startidx=currentidx;
 		open_func(new_fs, bl);
 		this.checknext('(');
 		if (needself) {
@@ -1436,6 +1502,7 @@ public class LexState extends Constants {
 			this.adjustlocalvars(1);
 		}
 		this.statlist();
+		new_fs.f.endidx=currentidx;
 		new_fs.f.lastlinedefined = this.linenumber;
 		this.check_match(TK_END, TK_FUNCTION, line);
 		this.codeclosure(e);
@@ -1901,7 +1968,7 @@ public class LexState extends Constants {
 		fs.checkrepeated(dyd.label, dyd.n_label, label);  /* check for repeated labels */
 		checknext(TK_DBCOLON);  /* skip double colon */
 		/* create new entry for this label */
-		l = newlabelentry(dyd.label=grow(dyd.label, dyd.n_label+1), dyd.n_label++, label, line, fs.pc);
+		l = newlabelentry(dyd.label=grow(dyd.label, dyd.n_label+1), dyd.n_label++, label, line, fs.getlabel());
 		skipnoopstat();  /* skip other no-op statements */
 		if (block_follow(false)) {  /* label is last no-op statement in the block? */
 			/* assume that locals are already out of scope */
@@ -2054,7 +2121,8 @@ public class LexState extends Constants {
 			this.forlist(varname);
 			break;
 		default:
-			this.syntaxerror(LUA_QL("=") + " or " + LUA_QL("in") + " expected");
+			this.forlist(varname);
+			//this.syntaxerror(LUA_QL("=") + " or " + LUA_QL("in") + " expected");
 		}
 		this.check_match(TK_END, TK_FOR, line);
 		fs.leaveblock(); /* loop scope (`break' jumps to this point) */
@@ -2213,16 +2281,36 @@ public class LexState extends Constants {
 		fs.getlocvar(fs.nactvar - 1).startpc = fs.pc;
 	}
 
+	void loadlist(int n){
+		LocVars[] ls = fs.f.locvars;
+		expdesc var = new expdesc();
+		int nl = fs.nlocvars;
+		LuaString l = ls[ nl - n].varname;
+		FuncState.singlevaraux(fs, l, var, 1);
+		for (int i = nl - n + 1 ; i < nl; i++) {
+			l = ls[i].varname;
+			fs.exp2nextreg(var);
+			FuncState.singlevaraux(fs, l, var, 1);
+		}
+		this.adjust_assign(n, n, var);
+		this.adjustlocalvars(n);
+	}
 
 	void localstat() {
 		/* stat -> LOCAL NAME {`,' NAME} [`=' explist1] */
 		int nvars = 0;
 		int nexps;
 		expdesc e = new expdesc();
+		boolean def = testnext('=');
 		do {
 			this.new_localvar(this.str_checkname());
 			++nvars;
 		} while (this.testnext(','));
+
+		if(def) {
+			loadlist(nvars);
+			return;
+		}
 
 		if(nvars==1&&testtoken('(')){
 			expdesc b = new expdesc();
@@ -2233,7 +2321,7 @@ public class LexState extends Constants {
             return;
 		}
 
-		if (this.testnext('='))
+        if (this.testnext('='))
 			nexps = this.explist(e);
 		else {
 			e.k = VVOID;
@@ -2282,6 +2370,7 @@ public class LexState extends Constants {
 		}
 		else {  /* stat -> func */
 			check_condition(v.v.k == VCALL, "syntax error");
+			if(v.v.k == VCALL)
 			SETARG_C(fs.getcodePtr(v.v), 1);  /* call statement uses no results */
 		}
 	}
@@ -2389,8 +2478,11 @@ public class LexState extends Constants {
 			break;
 		}
 		}
-		_assert(fs.f.maxstacksize >= fs.freereg
-				&& fs.freereg >= fs.nactvar);
+		//_assert(fs.f.maxstacksize >= fs.freereg
+		//		&& fs.freereg >= fs.nactvar);
+		if(!(fs.f.maxstacksize >= fs.freereg
+				&& fs.freereg >= fs.nactvar))
+		syntaxerror("statement");
 		fs.freereg = fs.nactvar; /* free registers */
 		leavelevel();
 	}
@@ -2411,6 +2503,13 @@ public class LexState extends Constants {
 	** upvalue named LUA_FUNC_ENV
 	*/
 	public void mainfunc(FuncState funcstate) {
+		if(bool){
+			globals.clear();
+			valueMap.clear();
+			errormsg=null;
+			errorline=-1;
+			erroridx=-1;
+		}
 		BlockCnt bl = new BlockCnt();
 		open_func(funcstate, bl);
 		fs.f.is_vararg = 1;  /* main function is always vararg */

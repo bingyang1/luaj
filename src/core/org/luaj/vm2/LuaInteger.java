@@ -191,28 +191,28 @@ public class LuaInteger extends LuaNumber {
 	public LuaValue   bnot()     { return LuaInteger.valueOf( ~v); }
 
 	// relational operators
-	public LuaValue   lt( LuaValue rhs )         { return rhs.gt_b(v)? TRUE: FALSE; }	
+	public LuaValue   lt( LuaValue rhs )         { return rhs instanceof LuaNumber ? (rhs.gt_b(v)? TRUE: FALSE) : super.lt(rhs); }
 	public LuaValue   lt( double rhs )      { return v < rhs? TRUE: FALSE; }
 	public LuaValue   lt( long rhs )         { return v < rhs? TRUE: FALSE; }
-	public boolean lt_b( LuaValue rhs )       { return rhs.gt_b(v); }
+	public boolean lt_b( LuaValue rhs )       { return rhs instanceof LuaNumber ? rhs.gt_b(v) : super.lt_b(rhs); }
 	public boolean lt_b( long rhs )         { return v < rhs; }
 	public boolean lt_b( double rhs )      { return v < rhs; }
-	public LuaValue   lteq( LuaValue rhs )       { return rhs.gteq_b(v)? TRUE: FALSE; }
+	public LuaValue   lteq( LuaValue rhs )       { return rhs instanceof LuaNumber ? (rhs.gteq_b(v)? TRUE: FALSE) : super.lteq(rhs); }
 	public LuaValue   lteq( double rhs )    { return v <= rhs? TRUE: FALSE; }
 	public LuaValue   lteq( long rhs )       { return v <= rhs? TRUE: FALSE; }
-	public boolean lteq_b( LuaValue rhs )     { return rhs.gteq_b(v); }
+	public boolean lteq_b( LuaValue rhs )     { return rhs instanceof LuaNumber ? rhs.gteq_b(v) : super.lteq_b(rhs); }
 	public boolean lteq_b( long rhs )       { return v <= rhs; }
 	public boolean lteq_b( double rhs )    { return v <= rhs; }
-	public LuaValue   gt( LuaValue rhs )         { return rhs.lt_b(v)? TRUE: FALSE; }
+	public LuaValue   gt( LuaValue rhs )         { return rhs instanceof LuaNumber ? (rhs.lt_b(v)? TRUE: FALSE) : super.gt(rhs); }
 	public LuaValue   gt( double rhs )      { return v > rhs? TRUE: FALSE; }
 	public LuaValue   gt( long rhs )         { return v > rhs? TRUE: FALSE; }
-	public boolean gt_b( LuaValue rhs )       { return rhs.lt_b(v); }
+	public boolean gt_b( LuaValue rhs )       { return rhs instanceof LuaNumber ? rhs.lt_b(v) : super.gt_b(rhs); }
 	public boolean gt_b( long rhs )         { return v > rhs; }
 	public boolean gt_b( double rhs )      { return v > rhs; }
-	public LuaValue   gteq( LuaValue rhs )       { return rhs.lteq_b(v)? TRUE: FALSE; }
+	public LuaValue   gteq( LuaValue rhs )       { return rhs instanceof LuaNumber ? (rhs.lteq_b(v)? TRUE: FALSE) : super.gteq(rhs); }
 	public LuaValue   gteq( double rhs )    { return v >= rhs? TRUE: FALSE; }
 	public LuaValue   gteq( long rhs )       { return v >= rhs? TRUE: FALSE; }
-	public boolean gteq_b( LuaValue rhs )     { return rhs.lteq_b(v); }
+	public boolean gteq_b( LuaValue rhs )     { return rhs instanceof LuaNumber ? rhs.lteq_b(v) : super.gteq_b(rhs); }
 	public boolean gteq_b( long rhs )       { return v >= rhs; }
 	public boolean gteq_b( double rhs )    { return v >= rhs; }
 	

@@ -59,7 +59,7 @@ public class LuaUserdata extends LuaValue {
 	public boolean isuserdata()                        { return true; }
 	public boolean isuserdata(Class c)                 { return c.isAssignableFrom(m_instance.getClass()); }
 	public Object  touserdata()                        { return m_instance; }
-	public Object  touserdata(Class c)                 { return c.isAssignableFrom(m_instance.getClass())? m_instance: null; }
+	public <T> T  touserdata(Class<T> c)                 { return c.isAssignableFrom(m_instance.getClass())? (T) m_instance : null; }
 	public Object  optuserdata(Object defval)          { return m_instance; }
 	public Object optuserdata(Class c, Object defval) {
 		if (!c.isAssignableFrom(m_instance.getClass()))

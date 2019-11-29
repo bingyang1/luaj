@@ -908,7 +908,7 @@ public class DebugLib extends TwoArgFunction {
 
 		@Override
 		public LuaValue call(LuaValue arg) {
-			LuaClosure.setCheckType(arg.checkint());
+			globals.setCheckType(arg.checkint());
 			return NONE;
 		}
 	}

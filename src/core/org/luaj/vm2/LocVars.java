@@ -33,7 +33,9 @@ public class LocVars {
 	
 	/** The instruction offset when the variable goes out of scope */ 
 	public int endpc;
-	
+	public int startidx;
+	public int endidx;
+
 	/**
 	 * Construct a LocVars instance. 
 	 * @param varname The local variable name
@@ -48,5 +50,10 @@ public class LocVars {
 	
 	public String tojstring() {
 		return varname+" "+startpc+"-"+endpc;
+	}
+
+	@Override
+	public String toString() {
+		return super.toString()+"("+tojstring()+" "+startidx+"-"+endidx+")";
 	}
 }

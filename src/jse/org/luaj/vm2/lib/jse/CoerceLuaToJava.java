@@ -21,6 +21,8 @@
 ******************************************************************************/
 package org.luaj.vm2.lib.jse;
 
+import android.util.Log;
+
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.luaj.vm2.LuaFunction;
 import org.luaj.vm2.LuaString;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.LuaValue;
@@ -472,6 +475,10 @@ public class CoerceLuaToJava {
 				return inheritanceLevels( targetType, String.class );
 			case LuaValue.TUSERDATA:
 				return inheritanceLevels( targetType, value.touserdata().getClass() );
+				case LuaValue.TTABLE:
+					return inheritanceLevels( targetType, LuaTable.class );
+				case LuaValue.TFUNCTION:
+					return inheritanceLevels( targetType, LuaFunction.class );
 			case LuaValue.TNIL:
 				return SCORE_NULL_VALUE;
 			default:

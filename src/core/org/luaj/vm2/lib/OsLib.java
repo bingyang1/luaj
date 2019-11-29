@@ -109,7 +109,7 @@ public class OsLib extends TwoArgFunction {
 		"tmpname",
 	};
 	
-	private static final long t0 = System.currentTimeMillis();
+	private static final long t0 = System.nanoTime();
 	private static long tmpnames = t0;
 
 	protected Globals globals;
@@ -160,7 +160,7 @@ public class OsLib extends TwoArgFunction {
 						tbl.set("min", LuaValue.valueOf(d.get(Calendar.MINUTE)));
 						tbl.set("sec", LuaValue.valueOf(d.get(Calendar.SECOND)));
 						tbl.set("wday", LuaValue.valueOf(d.get(Calendar.DAY_OF_WEEK)));
-						tbl.set("yday", LuaValue.valueOf(d.get(0x6))); // Day of year
+						tbl.set("yday", LuaValue.valueOf(d.get(Calendar.DAY_OF_YEAR))); // Day of year
 						tbl.set("isdst", LuaValue.valueOf(isDaylightSavingsTime(d)));
 						return tbl;
 					}
@@ -205,7 +205,7 @@ public class OsLib extends TwoArgFunction {
 	 * OsLib class was loaded.
 	 */
 	protected double clock() {
-		return (System.currentTimeMillis()-t0) / 1000.;
+		return (System.nanoTime()-t0) / 1000000.;
 	}
 
 	/**

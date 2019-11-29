@@ -21,8 +21,11 @@
  ******************************************************************************/
 package org.luaj.vm2.lib.jse;
 
+import android.util.Log;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -85,6 +88,10 @@ class JavaMethod extends JavaMember {
 
     public LuaValue call(LuaValue arg1, LuaValue arg2, LuaValue arg3) {
         return invokeMethod(getuservalue(), LuaValue.varargsOf(arg1, arg2, arg3));
+    }
+
+    public Varargs invoke(LuaValue[] args) {
+        return invoke(LuaValue.varargsOf(args));
     }
 
     public Varargs invoke(Varargs args) {

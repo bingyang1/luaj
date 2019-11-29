@@ -97,6 +97,7 @@ public class LuaFunction extends LuaValue {
 	public String name() {
 		return classnamestub();
 	}
+
 	public LuaValue getfenv() {
 		return env;
 	}

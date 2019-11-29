@@ -93,7 +93,6 @@ public class LuaClosure extends LuaFunction {
 	public UpValue[] upValues;
 	
 	final Globals globals;
-	private static int checkType;
 	private final static int checkglobal=1;
 	private final static int checklocal =2;
 	private final static int checktable =4;
@@ -103,7 +102,7 @@ public class LuaClosure extends LuaFunction {
 	 * @param p the Prototype to construct this Closure for. 
 	 * @param env the environment to associate with the closure.
 	 */
-	public LuaClosure(Prototype p,Globals globals, LuaValue env) {
+	public LuaClosure(Prototype p, Globals globals, LuaValue env) {
 		super( env );
 		this.p = p;
 		if (p.upvalues == null || p.upvalues.length == 0)
@@ -113,10 +112,6 @@ public class LuaClosure extends LuaFunction {
 			this.upValues[0] = new UpValue(new LuaValue[] {env}, 0);
 		}
 		this.globals = globals;
-	}
-
-	public static void setCheckType(int checkType) {
-		LuaClosure.checkType = checkType;
 	}
 
 	public boolean isclosure() {
@@ -198,7 +193,6 @@ public class LuaClosure extends LuaFunction {
 		Varargs v = NONE;
 		int[] code = p.code;
 		LuaValue[] k = p.k;
-		
 		// upvalues are only possible when closures create closures
 		// TODO: use linked list.
 		UpValue[] openups = p.p.length>0? new UpValue[stack.length]: null;
@@ -217,7 +211,7 @@ public class LuaClosure extends LuaFunction {
 				// pull out instruction
 				i = code[pc];
 				a = ((i>>6) & 0xff);
-				
+
 				// process the op code
 				switch ( i & 0x3f ) {
 				
@@ -226,19 +220,20 @@ public class LuaClosure extends LuaFunction {
 					continue;
 					
 				case Lua.OP_LOADK:/*	A Bx	R(A):= Kst(Bx)					*/
-					if((checkType & checklocal)==0){
+					if((globals.checkType & checklocal)==0||a>=p.locvars.length){
 						stack[a] = k[i>>>14];
 						continue;
 					}
 					v1 = stack[a];
 					v2 = k[i >>> 14];
-					if(v1!=null&&v2!=null&&v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
-						throw new LuaError(String.format("set local value type error: %s expected, got %s",v1.typename(),v2.typename()));
+					if(v1!=null&&v2!=null&&v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type()){
+						throw new LuaError(String.format("attempt to set (local '%s') value type error (%s expected, got %s)", p.locvars[a].varname, v1.typename(), v2.typename()));
+					}
 					stack[a] = v2;
 					continue;
 					
 				case Lua.OP_LOADBOOL:/*	A B C	R(A):= (Bool)B: if (C) pc++			*/
-					if((checkType & checklocal)==0){
+					if((globals.checkType & checklocal)==0||a>=p.locvars.length){
 						stack[a] = (i>>>23!=0)? LuaValue.TRUE: LuaValue.FALSE;
 						if ((i&(0x1ff<<14)) != 0)
 							++pc; /* skip next instruction (if C) */
@@ -247,7 +242,7 @@ public class LuaClosure extends LuaFunction {
 					v1 = stack[a];
 					v2 = (i>>>23!=0)? LuaValue.TRUE: LuaValue.FALSE;
 					if(v1!=null&&v1.type()!=LuaValue.TNIL&&v1.type()!=LuaValue.TBOOLEAN)
-						throw new LuaError(String.format("set local value type error: %s expected, got %s",v1.typename(),v2.typename()));
+						throw new LuaError(String.format("attempt to set (local '%s') value type error (%s expected, got %s)", p.locvars[a].varname, v1.typename(), v2.typename()));
 					stack[a] = v2;
 					if ((i&(0x1ff<<14)) != 0)
 						++pc; /* skip next instruction (if C) */
@@ -258,11 +253,17 @@ public class LuaClosure extends LuaFunction {
 						stack[a++] = LuaValue.NIL;
 					continue;
 
+					case Lua.OP_GETENV: /*	A Bx	R(A):= Gbl[Kst(Bx)]				*/
+						stack[a] = getfenv();
+						continue;
+					case Lua.OP_SETENV: /*	A Bx	Gbl[Kst(Bx)]:= R(A)				*/
+						setfenv(stack[a]);
+						continue;
 					case Lua.OP_GETGLOBAL: /*	A Bx	R(A):= Gbl[Kst(Bx)]				*/
 						stack[a] = getfenv().get(k[i>>>14]);
 						continue;
 					case Lua.OP_SETGLOBAL: /*	A Bx	Gbl[Kst(Bx)]:= R(A)				*/
-						if((checkType & checkglobal)==0){
+						if((globals.checkType & checkglobal)==0){
 						    getfenv().set(k[i>>>14], stack[a]);
 						    continue;
 						}
@@ -270,13 +271,13 @@ public class LuaClosure extends LuaFunction {
 						v1 = getfenv().get(k1);
 						v2 = stack[a];
 						if(v1!=null&&v2!=null&&v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
-							throw new LuaError(String.format("set '%s' value type error: %s expected, got %s",k1.tojstring(),v1.typename(),v2.typename()));
+							throw new LuaError(String.format("attempt to set (global '%s') value type error (%s expected, got %s)",k1.tojstring(),v1.typename(),v2.typename()));
 						getfenv().set(k1,v2);
 						continue;
 
-					case Lua.OP_GETUPVAL: /*	A B	R(A):= UpValue[B]				*/
-	                stack[a] = upValues[i>>>23].getValue();
-	                continue;
+				case Lua.OP_GETUPVAL: /*	A B	R(A):= UpValue[B]				*/
+					stack[a] = upValues[i>>>23].getValue();
+	            continue;
 					
 				case Lua.OP_GETTABUP: /*	A B C	R(A) := UpValue[B][RK(C)]			*/
 					stack[a] = upValues[i>>>23].getValue().get((c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c]);
@@ -288,41 +289,51 @@ public class LuaClosure extends LuaFunction {
 					
 				case Lua.OP_SETTABUP: /*	A B C	UpValue[A][RK(B)] := RK(C)	*/
 					boolean isg = upValues[a].getValue().eq_b(globals);
-					if(((checkType & checkglobal)==0&&isg)||((checkType & checktable)==0&&!isg)){
+					if(((globals.checkType & checkglobal)==0&&isg)||((globals.checkType & checktable)==0&&!isg)){
 						upValues[a].getValue().set(((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]), (c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c]);
 						continue;
 					}
 	                k1=((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]);
 					v1=upValues[a].getValue().get(k1);
 					v2=(c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c];
-					if(v1!=null&&v2!=null&&v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
-						throw new LuaError(String.format("set '%s' value type error: %s expected, got %s",k1.tojstring(),v1.typename(),v2.typename()));
+					if(v1!=null&&v2!=null&&v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type()){
+						if(isg)
+						    throw new LuaError(String.format("attempt to set (global '%s') value type error (%s expected, got %s)", k1.tojstring(), v1.typename(), v2.typename()));
+						else
+							throw new LuaError(String.format("attempt to set (uptable %s[%s]) value type error (%s expected, got %s)", p.upvalues[a].name, k1.tojstring(), v1.typename(), v2.typename()));
+					}
 					upValues[a].getValue().set(k1,v2);
 					continue;
 					
 				case Lua.OP_SETUPVAL: /*	A B	UpValue[B]:= R(A)				*/
-					if((checkType&checkglobal)==0){
+					if((globals.checkType&checkglobal)==0){
 						upValues[i>>>23].setValue(stack[a]);
 						continue;
 					}
 					v1 = upValues[i>>>23].getValue();
 					v2 = stack[a];
 					if(v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
-						throw new LuaError(String.format("set up value type error: %s expected, got %s",v1.typename(),v2.typename()));
+						throw new LuaError(String.format("attempt to set (upvalue '%s') value type error (%s expected, got %s)", p.upvalues[i>>>23].name, v1.typename(), v2.typename()));
 					upValues[i>>>23].setValue(v2);
 					continue;
 					
 				case Lua.OP_SETTABLE: /*	A B C	R(A)[RK(B)]:= RK(C)				*/
 					isg=stack[a].eq_b(globals);
-					if(((checkType & checkglobal)==0&&isg)||((checkType & checktable)==0&&!isg)){
+					if(((globals.checkType & checkglobal)==0&&isg)||((globals.checkType & checktable)==0&&!isg)){
 						stack[a].set(((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]), (c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c]);
 						continue;
 					}
 					k1=((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]);
 					v1 = stack[a].get(k1);
 					v2 = (c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c];
-					if(v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
-						throw new LuaError(String.format("set '%s' value type error: %s expected, got %s",k1.tojstring(),v1.typename(),v2.typename()));
+					if(v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type()){
+						if(isg)
+							throw new LuaError(String.format("attempt to set (global '%s') value type error (%s expected, got %s)", k1.tojstring(), v1.typename(), v2.typename()));
+						else if(a<p.locvars.length)
+							throw new LuaError(String.format("attempt to set (loctable %s[%s]) value type error (%s expected, got %s)", p.locvars[a].varname, k1.tojstring(), v1.typename(), v2.typename()));
+                        else
+						    throw new LuaError(String.format("attempt to set (table field '%s') value type error (%s expected, got %s)", k1.tojstring(), v1.typename(), v2.typename()));
+					}
 					stack[a].set(k1,v2);
 					continue;
 					
@@ -460,22 +471,55 @@ public class LuaClosure extends LuaFunction {
 				case Lua.OP_CALL: /*	A B C	R(A), ... ,R(A+C-2):= R(A)(R(A+1), ... ,R(A+B-1)) */
 
 					switch ( i & (Lua.MASK_B | Lua.MASK_C) ) {
-					case (1<<Lua.POS_B) | (0<<Lua.POS_C): v=stack[a].invoke(NONE); top=a+v.narg(); continue;
-					case (2<<Lua.POS_B) | (0<<Lua.POS_C): v=stack[a].invoke(stack[a+1]); top=a+v.narg(); continue;
-					case (1<<Lua.POS_B) | (1<<Lua.POS_C): stack[a].call(); continue;
-					case (2<<Lua.POS_B) | (1<<Lua.POS_C): stack[a].call(stack[a+1]); continue;
-					case (3<<Lua.POS_B) | (1<<Lua.POS_C): stack[a].call(stack[a+1],stack[a+2]); continue;
-					case (4<<Lua.POS_B) | (1<<Lua.POS_C): stack[a].call(stack[a+1],stack[a+2],stack[a+3]); continue;
-					case (1<<Lua.POS_B) | (2<<Lua.POS_C): stack[a] = stack[a].call(); continue;
-					case (2<<Lua.POS_B) | (2<<Lua.POS_C): stack[a] = stack[a].call(stack[a+1]); continue;
-					case (3<<Lua.POS_B) | (2<<Lua.POS_C): stack[a] = stack[a].call(stack[a+1],stack[a+2]); continue;
-					case (4<<Lua.POS_B) | (2<<Lua.POS_C): stack[a] = stack[a].call(stack[a+1],stack[a+2],stack[a+3]); continue;
+					case (1<<Lua.POS_B) | (0<<Lua.POS_C):
+						v=stack[a].invoke(NONE);
+						top=a+v.narg();
+						pop(stack,a,1);
+						continue;
+					case (2<<Lua.POS_B) | (0<<Lua.POS_C):
+						v=stack[a].invoke(stack[a+1]);
+						top=a+v.narg();
+						pop(stack,a,2);
+						continue;
+					case (1<<Lua.POS_B) | (1<<Lua.POS_C):
+						stack[a].call();
+						pop(stack,a,1);
+						continue;
+					case (2<<Lua.POS_B) | (1<<Lua.POS_C):
+						stack[a].call(stack[a+1]);
+						pop(stack,a,2);
+						continue;
+					case (3<<Lua.POS_B) | (1<<Lua.POS_C):
+						stack[a].call(stack[a+1],stack[a+2]);
+						pop(stack,a,3);
+						continue;
+					case (4<<Lua.POS_B) | (1<<Lua.POS_C):
+						stack[a].call(stack[a+1],stack[a+2],stack[a+3]);
+						pop(stack,a,4);
+						continue;
+					case (1<<Lua.POS_B) | (2<<Lua.POS_C):
+						stack[a] = stack[a].call();
+						continue;
+					case (2<<Lua.POS_B) | (2<<Lua.POS_C):
+						stack[a] = stack[a].call(stack[a+1]);
+						pop(stack,a+1,1);
+						continue;
+					case (3<<Lua.POS_B) | (2<<Lua.POS_C):
+						stack[a] = stack[a].call(stack[a+1],stack[a+2]);
+						pop(stack,a+1,2);
+						continue;
+					case (4<<Lua.POS_B) | (2<<Lua.POS_C):
+						stack[a] = stack[a].call(stack[a+1],stack[a+2],stack[a+3]);
+						pop(stack,a+1,3);
+						continue;
 					default:
 						b = i>>>23;
 						c = (i>>14)&0x1ff;
 						v = stack[a].invoke(b>0? 
 							varargsOf(stack, a+1, b-1): // exact arg count
-							varargsOf(stack, a+1, top-v.narg()-(a+1), v));  // from prev top 
+							varargsOf(stack, a+1, top-v.narg()-(a+1), v));  // from prev top
+						if(b>0)
+							pop(stack,a,b);
 						if ( c > 0 ) {
 							v.copyto(stack, a, c-1);
 							v = NONE;
@@ -514,7 +558,7 @@ public class LuaClosure extends LuaFunction {
 					{
 			            LuaValue limit = stack[a + 1];
 						LuaValue step  = stack[a + 2];
-						LuaValue idx   = step.add(stack[a]);
+						LuaValue idx   = stack[a].add(step);
 			            if (step.gt_b(0)? idx.lteq_b(limit): idx.gteq_b(limit)) {
 		                    stack[a] = idx;
 		                    stack[a + 3] = idx;
@@ -607,12 +651,14 @@ public class LuaClosure extends LuaFunction {
 			}
 		} catch ( LuaError le ) {
 			le.printStackTrace();
+			le.varname=getVarName(p, pc);
 			if (le.traceback == null)
 				processErrorHooks(le, p, pc);
 			throw le;
 		} catch ( Exception e ) {
 			e.printStackTrace();
 			LuaError le = new LuaError(e);
+			le.varname = getVarName(p,pc);
 			processErrorHooks(le, p, pc);
 			throw le;
 		} finally {
@@ -622,6 +668,12 @@ public class LuaClosure extends LuaFunction {
 						openups[u].close();
 			if (globals != null && globals.debuglib != null)
 				globals.debuglib.onReturn();
+		}
+	}
+
+	private void pop(LuaValue[] stack, int a, int i) {
+		for (int i1 = 0; i1 < i; i1++) {
+			stack[a+i1]=LuaValue.NIL;
 		}
 	}
 
@@ -669,7 +721,56 @@ public class LuaClosure extends LuaFunction {
 		le.traceback = errorHook(le.getMessage(), le.level);
 
 	}
-	
+    private int lastpc=0;
+
+
+	private String getVarName(Prototype p, int pc) {
+		lastpc=pc;
+		if(pc<0)
+			return "'?'";
+		int i = p.code[pc];
+		int a = ((i >> 6) & 0xff);
+		switch ( i & 0x3f ){
+			case Lua.OP_GETTABLE:
+				int c=(i>>14)&0x1ff;
+                if(c>0xff)
+				    return String.format("%s.%s",getVarName(p,pc-1), p.k[c&0x0ff].tojstring());
+				return String.format("field [%s]", getVarName(p, pc - 1));
+			case Lua.OP_ADD:
+			case Lua.OP_SUB:
+			case Lua.OP_MUL:
+			case Lua.OP_DIV:
+			case Lua.OP_POW:
+			case Lua.OP_IDIV:
+			case Lua.OP_BAND:
+			case Lua.OP_BOR:
+			case Lua.OP_BXOR:
+			case Lua.OP_SHL:
+			case Lua.OP_SHR:
+			case Lua.OP_LT:
+			case Lua.OP_LE:
+			case Lua.OP_CONCAT:
+				String n2 = getVarName(p, lastpc - 1);
+				String n1 = getVarName(p, lastpc - 1);
+				return String.format("%s %s", n1, n2);
+			case Lua.OP_GETTABUP:
+			case Lua.OP_GETUPVAL:
+				return String.format("upvalue '%s'", p.upvalues[i>>>23].name.tojstring());
+			case Lua.OP_GETGLOBAL:
+				return String.format("global '%s'", p.k[i>>>14].tojstring());
+			case Lua.OP_NEWTABLE:
+			case Lua.OP_NEWLIST:
+			case Lua.OP_LOADBOOL:
+			case Lua.OP_LOADK:
+			case Lua.OP_LOADNIL:
+				if(a<p.locvars.length)
+				    return String.format("local '%s'", p.locvars[a].varname.tojstring());
+			default:
+				return getVarName(p, pc-1);
+		}
+		//return String.valueOf(i & 0x3f);
+	}
+
 	private UpValue findupval(LuaValue[] stack, short idx, UpValue[] openups) {
 		final int n = openups.length;
 		for (int i = 0; i < n; ++i)

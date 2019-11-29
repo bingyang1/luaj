@@ -102,6 +102,8 @@ public class Prototype {
 	public int maxstacksize;
 	private static final Upvaldesc[] NOUPVALUES = {};
 	private static final Prototype[] NOSUBPROTOS = {};
+	public int endidx;
+	public int startidx;
 
 	public Prototype() {
 		p = NOSUBPROTOS;

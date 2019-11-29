@@ -126,8 +126,11 @@ public class FuncState extends Constants {
 
 	void removevars (int tolevel) {
 	  ls.dyd.n_actvar -= (nactvar - tolevel);
-	  while (nactvar > tolevel)
-	    getlocvar(--nactvar).endpc = pc;
+	  while (nactvar > tolevel){
+		  LocVars var = getlocvar(--nactvar);
+		  var.endpc = pc;
+		  var.endidx = ls.lastidx;
+	  }
 	}
 
 
@@ -178,6 +181,7 @@ public class FuncState extends Constants {
 		    if (idx < 0) {  /* not found? */
 		        if (singlevaraux(fs.prev, n, var, 0) == LexState.VVOID) /* try upper levels */{
 					var.init(LexState.VGLOBAL, NO_REG);
+					var.u.info = fs.stringK(n); /* info points to global name */
 					return LexState.VVOID;  /* not found; is a global */
 				}
 		        /* else was LOCAL or UPVAL */
@@ -548,6 +552,11 @@ public class FuncState extends Constants {
 				e.k = LexState.VRELOCABLE;
 				break;
 			}
+			case LexState.VENV: {
+				e.u.info = this.codeABx(OP_GETENV, 0, e.u.info);
+				e.k = LexState.VRELOCABLE;
+				break;
+			}
 		case LexState.VINDEXED: {
 			int op = OP_GETTABUP;  /* assume 't' is in an upvalue */
 			this.freereg(e.u.ind_idx);
@@ -725,6 +734,11 @@ public class FuncState extends Constants {
 			case LexState.VGLOBAL: {
 				int e = this.exp2anyreg(ex);
 				this.codeABx(OP_SETGLOBAL, e, var.u.info);
+				break;
+			}
+			case LexState.VENV: {
+				int e = this.exp2anyreg(ex);
+				this.codeABx(OP_SETENV, e, var.u.info);
 				break;
 			}
 

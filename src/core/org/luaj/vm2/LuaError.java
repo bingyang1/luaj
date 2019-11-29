@@ -44,7 +44,9 @@ public class LuaError extends RuntimeException {
 	protected int level;
 	
 	protected String fileline;
-	
+
+	protected String varname;
+
 	protected String traceback;
 	
 	protected Throwable cause;
@@ -60,6 +62,8 @@ public class LuaError extends RuntimeException {
 		String m = super.getMessage();
 		if (m == null)
 			return null;
+		if(varname!=null)
+			m=m + " ( " +varname + " )";
 		if (fileline != null)
 			return fileline + " " + m;
 		return m;

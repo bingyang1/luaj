@@ -21,6 +21,8 @@
 ******************************************************************************/
 package org.luaj.vm2.lib.jse;
 
+import android.util.Log;
+
 import org.luaj.vm2.Varargs;
 import org.luaj.vm2.lib.VarArgFunction;
 import org.luaj.vm2.lib.jse.CoerceLuaToJava.Coercion;

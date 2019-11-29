@@ -137,8 +137,13 @@ public class Globals extends LuaTable {
 	
 	/** The DebugLib instance loaded into this Globals, or null if debugging is not enabled */
 	public DebugLib debuglib;
+	public int checkType=0;
 
-	/** Interface for module that converts a Prototype into a LuaFunction with an environment. */
+	public void setCheckType(int checkType) {
+		this.checkType = checkType;
+	}
+
+    /** Interface for module that converts a Prototype into a LuaFunction with an environment. */
 	public interface Loader {
 		/** Convert the prototype into a LuaFunction with the supplied environment. */
 		LuaFunction load(Prototype prototype, String chunkname, Globals globals, LuaValue env) throws IOException;
@@ -186,6 +191,14 @@ public class Globals extends LuaTable {
 			return error("load "+filename+": "+e);
 		}
 	}
+	public LuaValue loadfile(String filename, LuaValue env) {
+		try {
+			return load(finder.findResource(filename), "@"+filename, "bt", env);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return error("load "+filename+": "+e);
+		}
+	}
 
 	/** Convenience function to load a string value as a script.  Must be lua source.
 	 * @param script Contents of a lua script, such as "print 'hello, world.'"
@@ -196,7 +209,11 @@ public class Globals extends LuaTable {
 	public LuaValue load(String script, String chunkname) {
 		return load(new StrReader(script), chunkname);
 	}
-	
+
+	public LuaValue load(byte[] script, String chunkname) {
+		return load(new ByteReader(script), chunkname);
+	}
+
 	/** Convenience function to load a string value as a script.  Must be lua source.
 	 * @param script Contents of a lua script, such as "print 'hello, world.'"
 	 * @return LuaValue that may be executed via .call(), .invoke(), or .method() calls.
@@ -336,6 +353,27 @@ public class Globals extends LuaTable {
 			int j = 0;
 			for (; j < len && i < n; ++j, ++i)
 				cbuf[off+j] = s.charAt(i);
+			return j > 0 || len == 0 ? j : -1;
+		}
+	}
+	static class ByteReader extends Reader {
+		final byte[] s;
+		int i = 0;
+		final int n;
+		ByteReader(byte[] s) {
+			this.s = s;
+			n = s.length;
+		}
+		public void close() throws IOException {
+			i = n;
+		}
+		public int read() throws IOException {
+			return i < n ? s[i++] : -1;
+		}
+		public int read(char[] cbuf, int off, int len) throws IOException {
+			int j = 0;
+			for (; j < len && i < n; ++j, ++i)
+				cbuf[off+j] = (char) s[i];
 			return j > 0 || len == 0 ? j : -1;
 		}
 	}

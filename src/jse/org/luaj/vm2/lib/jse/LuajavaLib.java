@@ -22,11 +22,16 @@
 package org.luaj.vm2.lib.jse;
 
 
+import android.media.MediaScannerConnection;
+
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
 
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.LuaError;
@@ -37,6 +42,8 @@ import org.luaj.vm2.Varargs;
 import org.luaj.vm2.compiler.LuaC;
 import org.luaj.vm2.lib.LibFunction;
 import org.luaj.vm2.lib.VarArgFunction;
+
+import static android.icu.lang.UCharacter.GraphemeClusterBreak.L;
 
 /** 
  * Subclass of {@link LibFunction} which implements the features of the luajava package. 
@@ -90,6 +97,7 @@ public class LuajavaLib extends VarArgFunction {
 	static final int NEW			= 3;
 	static final int CREATEPROXY	= 4;
 	static final int LOADLIB		= 5;
+	static final int ASTABLE		= 6;
 
 	static final String[] NAMES = {
 		"bindClass", 
@@ -97,6 +105,7 @@ public class LuajavaLib extends VarArgFunction {
 		"new", 
 		"createProxy", 
 		"loadLib",
+		"astable",
 	};
 	
 	static final int METHOD_MODIFIERS_VARARGS = 0x80;
@@ -184,6 +193,8 @@ public class LuajavaLib extends VarArgFunction {
 					return NIL;
 				}
 			}
+				case ASTABLE:
+					return asTable(args.checkuserdata(1));
 			default:
 				throw new LuaError("not yet supported: "+this);
 			}
@@ -194,6 +205,57 @@ public class LuajavaLib extends VarArgFunction {
 		} catch (Exception e) {
 			throw new LuaError(e);
 		}
+	}
+
+	public static LuaValue asTable(boolean dep, Object obj){
+		if (dep) {
+			return asTable(obj);
+		}
+		LuaTable tab = new LuaTable();
+		if (obj.getClass().isArray()) {
+			int n = Array.getLength(obj);
+			for (int i = 0; i <= n - 1; i++) {
+				tab.set(i+1,CoerceJavaToLua.coerce( Array.get(obj, i)));
+			}
+		} else if (obj instanceof Collection) {
+			Collection list = (Collection) obj;
+			int i = 1;
+			for (Object v : list) {
+				tab.set(i+1,CoerceJavaToLua.coerce(v));
+			}
+		} else if (obj instanceof Map) {
+			Map map = (Map) obj;
+			for (Object o : map.entrySet()) {
+				Map.Entry entry = (Map.Entry) o;
+				tab.set(CoerceJavaToLua.coerce(entry.getKey()),CoerceJavaToLua.coerce(entry.getValue()));
+			}
+		}
+		return tab;
+	}
+
+	private static LuaValue asTable(Object obj) {
+		LuaTable tab = new LuaTable();
+		if (obj.getClass().isArray()) {
+			int n = Array.getLength(obj);
+			for (int i = 0; i <= n - 1; i++) {
+				tab.set(i + 1,asTable(Array.get(obj, i)));
+			}
+		} else if (obj instanceof Collection) {
+			Collection list = (Collection) obj;
+			int i = 1;
+			for (Object v : list) {
+				tab.set(i + 1,asTable(v));
+			}
+		} else if (obj instanceof Map) {
+			Map map = (Map) obj;
+			for (Object o : map.entrySet()) {
+				Map.Entry entry = (Map.Entry) o;
+				tab.set(CoerceJavaToLua.coerce(entry.getKey()),asTable(entry.getValue()));
+			}
+		} else {
+			return CoerceJavaToLua.coerce(obj);
+		}
+		return tab;
 	}
 
 	public static LuaUserdata createProxy(Class clazz, LuaValue lobj){
@@ -211,7 +273,7 @@ public class LuajavaLib extends VarArgFunction {
 
 	// load classes using app loader to allow luaj to be used as an extension
 	protected Class<?> classForName(String name) throws ClassNotFoundException {
-		return Class.forName(name, true, ClassLoader.getSystemClassLoader());
+		return Class.forName(name, true, getClass().getClassLoader());
 	}
 	
 	private static final class ProxyInvocationHandler implements InvocationHandler {
