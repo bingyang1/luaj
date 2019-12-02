@@ -21,9 +21,15 @@
 ******************************************************************************/
 package org.luaj.vm2;
 
+import android.text.style.ImageSpan;
 import android.util.Log;
 
 import org.luaj.vm2.lib.DebugLib;
+
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.util.Arrays;
 
 /**
  * Extension of {@link LuaFunction} which executes lua bytecode. 
@@ -199,7 +205,8 @@ public class LuaClosure extends LuaFunction {
 		
 		// allow for debug hooks
 		if (globals != null && globals.debuglib != null)
-			globals.debuglib.onCall( this, varargs, stack ); 
+			globals.debuglib.onCall( this, varargs, stack );
+
 
 		// process instructions
 		try {
@@ -284,7 +291,7 @@ public class LuaClosure extends LuaFunction {
 					continue;
 	                
 				case Lua.OP_GETTABLE: /*	A B C	R(A):= R(B)[RK(C)]				*/
-	                stack[a] = stack[i>>>23].get((c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c]);
+					stack[a] = stack[i>>>23].get((c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c]);
 					continue;
 					
 				case Lua.OP_SETTABUP: /*	A B C	UpValue[A][RK(B)] := RK(C)	*/
@@ -723,19 +730,22 @@ public class LuaClosure extends LuaFunction {
 	}
     private int lastpc=0;
 
-
 	private String getVarName(Prototype p, int pc) {
+		int i,a,b,c=0;
 		lastpc=pc;
-		if(pc<0)
+		if(pc<0) {
 			return "'?'";
-		int i = p.code[pc];
-		int a = ((i >> 6) & 0xff);
+		}
+		i = p.code[pc];
+		a = ((i >> 6) & 0xff);
 		switch ( i & 0x3f ){
 			case Lua.OP_GETTABLE:
-				int c=(i>>14)&0x1ff;
+				c=(i>>14)&0x1ff;
                 if(c>0xff)
-				    return String.format("%s.%s",getVarName(p,pc-1), p.k[c&0x0ff].tojstring());
-				return String.format("field [%s]", getVarName(p, pc - 1));
+				    return String.format("%s.%s",vname(p,pc,i>>>23), p.k[c&0x0ff].tojstring());
+                String k=vname(p, lastpc, a);
+				String t=vname(p, lastpc, a);
+				return String.format("%s[%s]", t, k);
 			case Lua.OP_ADD:
 			case Lua.OP_SUB:
 			case Lua.OP_MUL:
@@ -750,26 +760,41 @@ public class LuaClosure extends LuaFunction {
 			case Lua.OP_LT:
 			case Lua.OP_LE:
 			case Lua.OP_CONCAT:
-				String n2 = getVarName(p, lastpc - 1);
-				String n1 = getVarName(p, lastpc - 1);
-				return String.format("%s %s", n1, n2);
+				String nc = (c = ( i >> 14 ) & 0x1ff) > 0xff ? kname(p, pc, c & 0x0ff): vname(p,lastpc,c);
+				String nb = (b = i >>> 23) > 0xff ? kname(p, pc, b & 0x0ff) : vname(p,lastpc,b);
+				return String.format("%s %s", nb, nc);
 			case Lua.OP_GETTABUP:
+				c=(i>>14)&0x1ff;
+				if(c>0xff)
+					return String.format("upvalue '%s'.%s",p.upvalues[i>>>23].name.tojstring(), p.k[c&0x0ff].tojstring());
+				return String.format("upvalue '%s'[%s]",p.upvalues[i>>>23].name.tojstring(), vname(p, pc, a));
 			case Lua.OP_GETUPVAL:
 				return String.format("upvalue '%s'", p.upvalues[i>>>23].name.tojstring());
 			case Lua.OP_GETGLOBAL:
 				return String.format("global '%s'", p.k[i>>>14].tojstring());
-			case Lua.OP_NEWTABLE:
-			case Lua.OP_NEWLIST:
-			case Lua.OP_LOADBOOL:
 			case Lua.OP_LOADK:
-			case Lua.OP_LOADNIL:
-				if(a<p.locvars.length)
-				    return String.format("local '%s'", p.locvars[a].varname.tojstring());
+				LuaString l = p.getlocalname(a, pc);
+				if(l!=null)
+					return String.format("local '%s'", l.tojstring());
+				else
+					return p.k[i>>>14].tojstring();
+			case Lua.OP_MOVE:
+				return vname(p,pc,i>>>23);
 			default:
-				return getVarName(p, pc-1);
+				return vname(p, pc, a);
 		}
-		//return String.valueOf(i & 0x3f);
 	}
+
+	private String kname(Prototype p, int pc, int c) {
+		return p.k[c].tojstring();
+	}
+	private String vname(Prototype p, int pc, int aa) {
+		LuaString l = p.getlocalname(aa+1, pc);
+        if(l!=null)
+        	return String.format("local '%s'", l.tojstring());
+        return getVarName(p,pc-1);
+	}
+
 
 	private UpValue findupval(LuaValue[] stack, short idx, UpValue[] openups) {
 		final int n = openups.length;
