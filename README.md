@@ -1,10 +1,6 @@
 # luaj nirenr修改版。
 ### 优化lua++语法。
 
-- 可检查变量类型改变
-debug.setchecktype(t)
-t可取值: 0 不检查,1 检查全局变量, 2检查局部变量, 4 检查表值, 7 检查全部.
-
 #### ** 可省略非必要关键字 **
 - 省略then
 `if a then
@@ -39,6 +35,18 @@ end`
     print(nil)
 end`
 
+- 支持when
+`a=when a
+   case 1,3,5,7,9
+     return 1
+   case 2,4,6,8
+     return 2
+   case 0
+     return 0
+   default
+     return nil
+ end`
+
 - 支持continue
 
 `for n=1,10
@@ -47,6 +55,40 @@ end`
  end
  print(n)
 end`
+
+#### ** 支持使用{}作为block块标记 **
+`if(b){
+  print(true)
+}else{
+  print(false)
+}`
+
+`for(k,v pairs(t)){
+}`
+
+#### ** 支持foreach**
+`for(k,v : t){
+}
+for k,v : t
+end`
+
+#### ** 支持defer **
+defer后语句将在函数结束时运行，多个defer将按照后入先出原则运行。
+
+#### ** 支持try-catch-finally **
+`try
+  error("err")
+catch(m)
+  print("catch",m)
+finally
+  print("finally")
+end`
+
+#### ** 支持import **
+import将导入包并设置为局部变量，支持别名。
+import "java.lang.String"
+import str "java.lang.String"
+
 
 #### ** 支持位运算 **
 

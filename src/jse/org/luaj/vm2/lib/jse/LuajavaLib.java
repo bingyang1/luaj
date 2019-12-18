@@ -308,7 +308,7 @@ public class LuajavaLib extends VarArgFunction {
     public static JavaClass bindClassForName(String name) throws ClassNotFoundException {
         return JavaClass.forClass(Class.forName(name, true, LuaApplication.getInstance().getClassLoader()));
     }
-    
+
     private static final class ProxyInvocationHandler implements InvocationHandler {
         private final LuaValue lobj;
 
