@@ -21,6 +21,8 @@
 ******************************************************************************/
 package org.luaj.vm2.lib;
 
+import android.util.Log;
+
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.Lua;
 import org.luaj.vm2.LuaBoolean;
@@ -729,12 +731,17 @@ public class DebugLib extends TwoArgFunction {
 		if (!x) throw new RuntimeException("lua_assert failed");
 	}
 	
-	static class NameWhat {
+	public static class NameWhat {
 		final String name;
 		final String namewhat;
 		NameWhat(String name, String namewhat) {
 			this.name = name;
 			this.namewhat = namewhat;
+		}
+
+		@Override
+		public String toString() {
+			return namewhat+" '"+name+"'";
 		}
 	}
 
@@ -747,9 +754,12 @@ public class DebugLib extends TwoArgFunction {
 		int i = p.code[pc]; /* calling instruction */
 		LuaString tm;
 		switch (Lua.GET_OPCODE(i)) {
+			case Lua.OP_DEFER:
+			case Lua.OP_TCALL:
 			case Lua.OP_CALL:
 			case Lua.OP_TAILCALL: /* get function name */
 				return getobjname(p, pc, Lua.GETARG_A(i));
+			case Lua.OP_TFOREACH:
 			case Lua.OP_TFORCALL: /* for iterator */
 		    	return new NameWhat("(for iterator)", "(for iterator");
 		    /* all other instructions can call only through metamethods */
@@ -770,7 +780,14 @@ public class DebugLib extends TwoArgFunction {
 		    case Lua.OP_LT: tm = LuaValue.LT; break;
 		    case Lua.OP_LE: tm = LuaValue.LE; break;
 		    case Lua.OP_CONCAT: tm = LuaValue.CONCAT; break;
-		    default:
+			case Lua.OP_IDIV: tm = LuaValue.IDIV; break;
+			case Lua.OP_BAND: tm = LuaValue.BAND; break;
+			case Lua.OP_BNOT: tm = LuaValue.BNOT; break;
+			case Lua.OP_BOR: tm = LuaValue.BOR; break;
+			case Lua.OP_BXOR: tm = LuaValue.BXOR; break;
+			case Lua.OP_SHL: tm = LuaValue.SHL; break;
+			case Lua.OP_SHR: tm = LuaValue.SHR; break;
+			default:
 		      return null;  /* else no useful name can be found */
 		}
 		return new NameWhat( tm.tojstring(), "metamethod" );
@@ -813,13 +830,13 @@ public class DebugLib extends TwoArgFunction {
 			case Lua.OP_GETUPVAL: {
 				int u = Lua.GETARG_B(i); /* upvalue index */
 				name = u < p.upvalues.length ? p.upvalues[u].name : QMARK;
-				return name == null ? null : new NameWhat( name.tojstring(), "upvalue" );
+				return name == null ? new NameWhat( "?", "upvalue" ) : new NameWhat( name.tojstring(), "upvalue" );
 			}
 		    case Lua.OP_LOADK:
 		    case Lua.OP_LOADKX: {
 		        int b = (Lua.GET_OPCODE(i) == Lua.OP_LOADK) ? Lua.GETARG_Bx(i)
 		                                                    : Lua.GETARG_Ax(p.code[pc + 1]);
-		        if (p.k[b].isstring()) {
+				if (p.k[b].isstring()) {
 		          name = p.k[b].strvalue();
 		          return new NameWhat( name.tojstring(), "constant" );
 		        }
@@ -834,7 +851,7 @@ public class DebugLib extends TwoArgFunction {
 				break;
 			}
 		}
-		return null; /* no useful name found */
+		return new NameWhat(ksname(p, lastpc, reg), "" ); /* no useful name found */
 	}
 
 	static String kname(Prototype p, int pc, int c) {
@@ -852,7 +869,15 @@ public class DebugLib extends TwoArgFunction {
 		}
 		return "?";  /* no reasonable name found */
 	}
-
+	static String ksname(Prototype p, int pc, int c) {
+		if (Lua.ISK(c)) {  /* is 'c' a constant? */
+			LuaValue k = p.k[Lua.INDEXK(c)];
+			if (k.isstring()) {  /* literal constant? */
+				return k.tojstring();  /* it is its own name */
+			} /* else no reasonable name found */
+		}
+		return "?";  /* no reasonable name found */
+	}
 	/*
 	** try to find last instruction before 'lastpc' that modified register 'reg'
 	*/
@@ -870,11 +895,14 @@ public class DebugLib extends TwoArgFunction {
 	          setreg = pc;
 	        break;
 	      }
+	      case Lua.OP_TFOREACH:
 	      case Lua.OP_TFORCALL: {
 	        if (reg >= a + 2) setreg = pc;  /* affect all regs above its base */
 	        break;
 	      }
-	      case Lua.OP_CALL:
+			case Lua.OP_DEFER:
+			case Lua.OP_TCALL:
+			case Lua.OP_CALL:
 	      case Lua.OP_TAILCALL: {
 	        if (reg >= a) setreg = pc;  /* affect all registers above base */
 	        break;

@@ -31,6 +31,7 @@ import org.luaj.vm2.LuaString;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.LuaValue;
 import org.luaj.vm2.Varargs;
+import org.luaj.vm2.lib.jse.LuajavaLib;
 
 /**
  * Subclass of {@link LibFunction} which implements the lua standard package and module
@@ -123,6 +124,9 @@ public class PackageLib extends TwoArgFunction {
 	
 	/** Loader that loads as a Java class.  Class must have public constructor and be a LuaValue. */
 	public java_searcher java_searcher;
+	public class_searcher class_searcher;
+	public require require;
+	public module module;
 
 	private static final LuaString _SENTINEL   = valueOf("\u0001");
 	
@@ -139,8 +143,8 @@ public class PackageLib extends TwoArgFunction {
 	 */
 	public LuaValue call(LuaValue modname, LuaValue env) {
 		globals = env.checkglobals();
-		globals.set("require", new require());
-		globals.set("module", new module());
+		globals.set("require", require = new require());
+		globals.set("module", module = new module());
 		package_ = new LuaTable();
 		package_.set(_LOADED, new LuaTable());
 		package_.set(_MODULES, new LuaTable());
@@ -152,6 +156,7 @@ public class PackageLib extends TwoArgFunction {
 		searchers.set(1, preload_searcher = new preload_searcher());
 		searchers.set(2, lua_searcher     = new lua_searcher());
 		searchers.set(3, java_searcher    = new java_searcher());
+		searchers.set(4, class_searcher    = new class_searcher());
 		package_.set(_SEARCHERS, searchers);
 		package_.get(_LOADED).set("package", package_);
 		env.set("package", package_);
@@ -204,7 +209,7 @@ public class PackageLib extends TwoArgFunction {
 	 * If there is any error loading or running the module, or if it cannot find any loader for the module,
 	 * then require raises an error.
 	 */
-	public class require extends OneArgFunction {
+	public final class require extends OneArgFunction {
 		public LuaValue call( LuaValue arg ) {
 			LuaString name = arg.checkstring();
 			LuaValue loaded = package_.get(_LOADED);
@@ -227,6 +232,8 @@ public class PackageLib extends TwoArgFunction {
 							
 			    /* call loader with module name as argument */
 				loader = searcher.invoke(name);
+				if(loader.isuserdata(1))
+					break;
 				if ( loader.isfunction(1) )
 					break;
 				if ( loader.isstring(1) )
@@ -235,7 +242,10 @@ public class PackageLib extends TwoArgFunction {
 	
 			// load the module using the loader
 			loaded.set(name, _SENTINEL);
-			result = loader.arg1().call(name, loader.arg(2));
+			if(loader.isuserdata(1))
+				result = loader.arg1();
+			else
+			    result = loader.arg1().call(name, loader.arg(2));
 			if ( ! result.isnil() )
 				loaded.set( name, result );
 			else if ( (result = loaded.get(name)) == _SENTINEL )
@@ -351,7 +361,21 @@ public class PackageLib extends TwoArgFunction {
 			}
 		}
 	}
-	
+
+	public class class_searcher extends VarArgFunction {
+		public Varargs invoke(Varargs args) {
+			String name = args.checkjstring(1);
+			String classname = toClassname( name );
+			try {
+				return LuajavaLib.bindClassForName(classname);
+			} catch ( ClassNotFoundException  cnfe ) {
+				return valueOf("\n\tno class '"+classname+"'" );
+			} catch ( Exception e ) {
+				return valueOf("\n\tjava load failed on '"+classname+"', "+e );
+			}
+		}
+	}
+
 	/** Convert lua filename to valid class name */
 	public static final String toClassname( String filename ) {
 		int n=filename.length();
@@ -387,7 +411,7 @@ public class PackageLib extends TwoArgFunction {
 		}
 	}
 
-	private class module extends VarArgFunction {
+	public final class module extends VarArgFunction {
 
 		public Varargs invoke(Varargs args) {
 			LuaString modname = args.checkstring(1);
@@ -418,7 +442,10 @@ public class PackageLib extends TwoArgFunction {
 					error("'module' not called from a Lua function");
 				f.setfenv(module);
 			} else if (Lua.LUA_LOCAL_ENV){
-				globals.running.callstack.getCallFrame(1).setLocal(1,module);
+				DebugLib.CallFrame frame = globals.running.callstack.getCallFrame(1);
+				if (frame == null)
+					return argerror(0, "'module' not called from a Lua function");
+				frame.setLocal(1 + frame.f.checkclosure().p.numparams, module);
 			} else {
 				LuaClosure c = (LuaClosure) globals.running.callstack.getCallFrame(1).f;
 				c.upValues[0].setValue(module);
@@ -426,9 +453,9 @@ public class PackageLib extends TwoArgFunction {
 			// apply the functions
 			for ( int i=2; i<=n; i++ )
 				args.arg(i).call( module );
-
+            module.setmetatable(module);
 			// returns no results
-			return NONE;
+			return module;
 		}
 
 	}

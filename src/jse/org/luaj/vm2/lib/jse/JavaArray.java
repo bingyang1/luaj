@@ -22,10 +22,12 @@
 package org.luaj.vm2.lib.jse;
 
 import java.lang.reflect.Array;
+import java.util.List;
 
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.LuaUserdata;
 import org.luaj.vm2.LuaValue;
+import org.luaj.vm2.Varargs;
 import org.luaj.vm2.lib.OneArgFunction;
 
 /**
@@ -59,7 +61,15 @@ class JavaArray extends LuaUserdata {
 		super(instance);
 		setmetatable(array_metatable);
 	}
-	
+
+	public Varargs next(LuaValue index) {
+		int len = Array.getLength(m_instance);
+		int idx = index.isnil() ? 0 : index.toint()+1;
+		if (idx>=len)
+			return LuaValue.NIL;
+		return LuaValue.varargsOf(new LuaValue[]{CoerceJavaToLua.coerce(idx),CoerceJavaToLua.coerce(Array.get(m_instance, idx))});
+	}
+
 	public LuaValue get(LuaValue key) {
 		if ( key.equals(LENGTH) )
 			return valueOf(Array.getLength(m_instance));

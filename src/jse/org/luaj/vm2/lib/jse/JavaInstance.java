@@ -23,14 +23,20 @@ package org.luaj.vm2.lib.jse;
 
 import android.util.Log;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 
+import org.luaj.vm2.Lua;
 import org.luaj.vm2.LuaError;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.LuaUserdata;
@@ -65,9 +71,75 @@ class JavaInstance extends LuaUserdata {
     private final static int TYPE_SETTER = 7;
     private final static int TYPE_SETVALUE = 8;
     private final static int TYPE_SETLISTENER = 9;
-
+    private HashMap<LuaValue,LuaValue> values=new HashMap<>();
+    /*private static final Map javaInstances = Collections.synchronizedMap(new HashMap());
+    static JavaInstance forCache(Object c) {
+        JavaInstance j = (JavaInstance) javaInstances.get(c);
+        if (j == null)
+            javaInstances.put(c, j = new JavaInstance(c));
+        return j;
+    }*/
+    final static Map<Object, WeakReference<JavaInstance>> javaInstances = new WeakHashMap<Object, WeakReference<JavaInstance>>();
+    static JavaInstance forCache(Object c) {
+        WeakReference<JavaInstance> j = (WeakReference<JavaInstance>) javaInstances.get(c);
+        if (j == null)
+            javaInstances.put(c, j = new WeakReference<>(new JavaInstance(c)));
+        return j.get();
+    }
     JavaInstance(Object instance) {
         super(instance);
+    }
+
+    @Override
+    public LuaValue call(LuaValue arg) {
+        if (arg.istable()) {
+            LuaValue key = LuaValue.NIL;
+            Varargs next;
+            while (!(next = arg.next(key)).isnil(1)) {
+                key = next.arg1();
+                set(key, next.arg(2));
+            }
+            return this;
+        }
+        return super.call(arg);
+    }
+
+    @Override
+    public Varargs invoke(Varargs args) {
+        if(args.narg()==1) {
+            LuaValue arg = args.arg1();
+            if (arg.istable()) {
+                LuaValue key = LuaValue.NIL;
+                Varargs next;
+                while (!(next = arg.next(key)).isnil(1)) {
+                    key = next.arg1();
+                    set(key, next.arg(2));
+                }
+                return this;
+            }
+        }
+        return super.invoke(args);
+    }
+
+    @Override
+    public Varargs next(LuaValue index) {
+        if(m_instance instanceof Map){
+            Map map= (Map) m_instance;
+            Set sets = map.keySet();
+            Object key = CoerceLuaToJava.coerce(index, Object.class);
+            for (Object set : sets) {
+                if(key==null||key.equals(set)){
+                      return LuaValue.varargsOf(new LuaValue[]{CoerceJavaToLua.coerce(set),CoerceJavaToLua.coerce(map.get(set))});
+                }
+            }
+        } else if(m_instance instanceof List){
+            List list= (List) m_instance;
+            int idx = index.isnil() ? 0 : index.toint()+1;
+            if (idx>=list.size())
+                return LuaValue.NIL;
+            return LuaValue.varargsOf(new LuaValue[]{CoerceJavaToLua.coerce(idx),CoerceJavaToLua.coerce(list.get(idx))});
+        }
+        return super.next(index);
     }
 
     public LuaValue get(LuaValue key) {
@@ -103,7 +175,7 @@ class JavaInstance extends LuaUserdata {
             if (m != null) {
                 if (type == 0)
                     jclass.typeCache.put(key, TYPE_METHOD);
-                m.setuservalue(m_instance);
+                m.setuservalue(this);
                 return m;
             }
         }
@@ -138,7 +210,7 @@ class JavaInstance extends LuaUserdata {
                     jclass.getterCache.put(key, m);
                     jclass.typeCache.put(key, TYPE_GETTER);
                 }
-                m.setuservalue(m_instance);
+                m.setuservalue(this);
                 return m.call();
             }
         }
@@ -157,7 +229,8 @@ class JavaInstance extends LuaUserdata {
                 return CoerceJavaToLua.coerce(list.get(key.checkint()));
             }
         }
-
+        if(values.containsKey(key))
+            return values.get(key);
         return super.get(key);
     }
 
@@ -194,7 +267,7 @@ class JavaInstance extends LuaUserdata {
                     jclass.setterCache.put(key, m);
                     jclass.setTypeCache.put(key, TYPE_SETTER);
                 }
-                m.setuservalue(m_instance);
+                m.setuservalue(this);
                 m.call(value);
                 return;
             }
@@ -226,7 +299,8 @@ class JavaInstance extends LuaUserdata {
                 return;
             }
         }
-        super.set(key, value);
+        values.put(key, value);
+        //super.set(key, value);
     }
 
     private boolean javaSetListener(String k, LuaValue v) {
@@ -236,7 +310,7 @@ class JavaInstance extends LuaUserdata {
             LuaTable t = new LuaTable();
             t.set(k, v);
             Class<?>[] pt = m.method.getParameterTypes();
-            m.setuservalue(m_instance);
+            m.setuservalue(this);
             m.call(LuajavaLib.createProxy(pt[0], t));
             return true;
         }

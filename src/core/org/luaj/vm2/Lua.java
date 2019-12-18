@@ -36,10 +36,10 @@ public class Lua {
 	public static final int LUA_MULTRET = -1;
 
 	/** use func.env **/
-	public static final boolean LUA_FUNC_ENV = true;
+	public static final boolean LUA_FUNC_ENV = false;
 
 	/** use first local _ENV **/
-	public static final boolean LUA_LOCAL_ENV = false;
+	public static final boolean LUA_LOCAL_ENV = true;
 
 	/** use t.filed **/
 	public static final boolean LUA_JAVA_OO = true;
@@ -253,8 +253,12 @@ public class Lua {
 	public static final int OP_NEWLIST = 48; /*	A B C	R(A) := {} (size = B,C)				*/
 	public static final int OP_GETENV = 49; /*	A Bx	R(A) := Gbl[Kst(Bx)]				*/
 	public static final int OP_SETENV = 50; /*	A Bx	Gbl[Kst(Bx)] := R(A)				*/
-
-	public static final int OP_EXTRAARG = 51; /* Ax	extra (larger) argument for previous opcode	*/
+    public static final int OP_DEFER = 51;
+	public static final int OP_TFOREACH = 52; /* ;	*/
+	public static final int OP_TCALL = 53; /* ;	*/
+	public static final int OP_IMPORT = 54; /* ; */
+	public static final int OP_MODULE = 55; /* ; */
+	public static final int OP_EXTRAARG = 56; /* Ax	extra (larger) argument for previous opcode	*/
 
 
 	public static final int NUM_OPCODES	= OP_EXTRAARG + 1;
@@ -355,6 +359,11 @@ public class Lua {
 			  (0<<7) | (1<<6) | (OpArgU<<4) | (OpArgN<<2) | (iABx),		/* OP_NEWLIST */
 			  (0<<7) | (1<<6) | (OpArgK<<4) | (OpArgN<<2) | (iABx),		/* OP_GETENV */
 			  (0<<7) | (0<<6) | (OpArgK<<4) | (OpArgN<<2) | (iABx),		/* OP_SETENV */
+			  (0<<7) | (1<<6) | (OpArgU<<4) | (OpArgN<<2) | (iABC),		/* OP_DEFER */
+			  (0<<7) | (0<<6) | (OpArgN<<4) | (OpArgU<<2) | (iABC),		/* OP_TFOREACH */
+			  (0<<7) | (1<<6) | (OpArgU<<4) | (OpArgU<<2) | (iABC),		/* OP_TCALL */
+			  (0<<7) | (1<<6) | (OpArgK<<4) | (OpArgN<<2) | (iABx),		/* OP_IMPORT */
+			  (0<<7) | (1<<6) | (OpArgK<<4) | (OpArgN<<2) | (iABx),		/* OP_MODULE */
 
 			  (0<<7) | (0<<6) | (OpArgU<<4) | (OpArgU<<2) | (iAx),		/* OP_EXTRAARG */
 	  };

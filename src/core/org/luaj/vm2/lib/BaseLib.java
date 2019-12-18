@@ -97,6 +97,7 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 		env.set("error", new error());
 		env.set("getmetatable", new getmetatable());
 		env.set("load", new load());
+		env.set("loadstring", new loadstring());
 		env.set("loadfile", new loadfile());
 		env.set("pcall", new pcall());
 		env.set("print", new print(this));
@@ -110,8 +111,10 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 		env.set("tostring", new tostring());
 		env.set("type", new type());
 		env.set("xpcall", new xpcall());
-		env.set("setfenv", new setfenv());
-		env.set("getfenv", new getfenv());
+		if(Lua.LUA_FUNC_ENV||Lua.LUA_LOCAL_ENV){
+			env.set("setfenv", new setfenv());
+			env.set("getfenv", new getfenv());
+		}
 
 		next next;
 		env.set("next", next = new next());
@@ -203,6 +206,16 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 			LuaValue env = args.optvalue(4, globals);
 			return loadStream(ld.isstring()? ld.strvalue().toInputStream():
 				new StringInputStream(ld.checkfunction()), source, mode, env);
+		}
+	}
+
+	final class loadstring extends VarArgFunction {
+		public Varargs invoke(Varargs args) {
+			LuaString ld = args.checkstring(1);
+			String source = args.optjstring(2, ld.isstring()? ld.tojstring(): "=(load)");
+			String mode = args.optjstring(3, "bt");
+			LuaValue env = args.optvalue(4, globals);
+			return loadStream(ld.toInputStream(), source, mode, env);
 		}
 	}
 

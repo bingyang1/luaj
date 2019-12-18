@@ -90,8 +90,12 @@ public class LuaC extends Constants implements Globals.Compiler, Globals.Loader 
 		globals.loader = instance;
 	}
 
-    public static Prototype lexer(String stream, String chunkname) throws IOException {
-		return (new CompileState()).luaY_parser2(new ByteArrayInputStream(stream.getBytes()), chunkname);
+    public static Prototype lexer(InputStream stream, String chunkname) throws IOException {
+		return (new CompileState()).luaY_parser2(stream, chunkname);
+	}
+
+	public static Prototype lexer(CharSequence stream, String chunkname) throws IOException {
+		return (new CompileState()).luaY_parser2(new ByteArrayInputStream(stream.toString().getBytes()), chunkname);
 	}
 
 	protected LuaC() {}

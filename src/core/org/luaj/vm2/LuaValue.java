@@ -264,7 +264,7 @@ public class LuaValue extends Varargs {
 			NILS[i] = NIL;
 	}
 
-	private Object uservalue;
+	public LuaValue uservalue;
 
 	public static final LuaString IDIV = valueOf("__idiv");
 	public static final LuaString BAND = valueOf("__band");// &
@@ -3568,10 +3568,10 @@ public class LuaValue extends Varargs {
 	 */
 	public void initupvalue1(LuaValue env) {}
 
-	public void setuservalue(Object uservalue) {
+	public void setuservalue(LuaValue uservalue) {
 		this.uservalue = uservalue;
 	}
-	public Object getuservalue() {
+	public LuaValue getuservalue() {
 		return uservalue;
 	}
 

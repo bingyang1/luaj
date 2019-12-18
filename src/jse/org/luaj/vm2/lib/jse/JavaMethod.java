@@ -30,6 +30,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.luaj.vm2.Lua;
 import org.luaj.vm2.LuaError;
 import org.luaj.vm2.LuaFunction;
 import org.luaj.vm2.LuaValue;
@@ -50,6 +51,7 @@ import org.luaj.vm2.Varargs;
 class JavaMethod extends JavaMember {
 
     static final Map methods = Collections.synchronizedMap(new HashMap());
+    private final Class<?> returnType;
 
     static JavaMethod forMethod(Method m) {
         JavaMethod j = (JavaMethod) methods.get(m);
@@ -67,6 +69,7 @@ class JavaMethod extends JavaMember {
     private JavaMethod(Method m) {
         super(m.getParameterTypes(), m.getModifiers());
         this.method = m;
+        this.returnType = m.getReturnType();
         try {
             if (!m.isAccessible())
                 m.setAccessible(true);
@@ -75,19 +78,31 @@ class JavaMethod extends JavaMember {
     }
 
     public LuaValue call() {
-        return invokeMethod(getuservalue(), LuaValue.NONE);
+        if(Lua.LUA_JAVA_OO)
+            return invokeMethod(uservalue.touserdata(), LuaValue.NONE);
+        else
+            return error("method cannot be called without instance");
     }
 
     public LuaValue call(LuaValue arg) {
-        return invokeMethod(getuservalue(), arg);
+        if(Lua.LUA_JAVA_OO)
+            return invokeMethod(uservalue.touserdata(), arg);
+        else
+            return invokeMethod(arg.checkuserdata(), LuaValue.NONE);
     }
 
     public LuaValue call(LuaValue arg1, LuaValue arg2) {
-        return invokeMethod(getuservalue(), LuaValue.varargsOf(arg1, arg2));
+        if(Lua.LUA_JAVA_OO)
+            return invokeMethod(uservalue.touserdata(), LuaValue.varargsOf(arg1, arg2));
+        else
+            return invokeMethod(arg1.checkuserdata(), arg2);
     }
 
     public LuaValue call(LuaValue arg1, LuaValue arg2, LuaValue arg3) {
-        return invokeMethod(getuservalue(), LuaValue.varargsOf(arg1, arg2, arg3));
+        if(Lua.LUA_JAVA_OO)
+            return invokeMethod(uservalue.touserdata(), LuaValue.varargsOf(arg1, arg2, arg3));
+        else
+            return invokeMethod(arg1.checkuserdata(), LuaValue.varargsOf(arg2, arg3));
     }
 
     public Varargs invoke(LuaValue[] args) {
@@ -95,13 +110,20 @@ class JavaMethod extends JavaMember {
     }
 
     public Varargs invoke(Varargs args) {
-        return invokeMethod(getuservalue(), args);
+        if(Lua.LUA_JAVA_OO)
+            return invokeMethod(uservalue.touserdata(), args);
+        else
+            return invokeMethod(args.checkuserdata(1), args.subargs(2));
     }
 
     LuaValue invokeMethod(Object instance, Varargs args) {
         Object[] a = convertArgs(args);
         try {
-            return CoerceJavaToLua.coerce(method.invoke(instance, a));
+            if(returnType==Void.TYPE){
+                method.invoke(instance, a);
+                return uservalue;
+            }
+           return CoerceJavaToLua.coerce(method.invoke(instance, a));
         } catch (InvocationTargetException e) {
             throw new LuaError(e.getTargetException());
         } catch (Exception e) {
@@ -128,23 +150,42 @@ class JavaMethod extends JavaMember {
         }
 
         public LuaValue call() {
-            return invokeBestMethod(getuservalue(), LuaValue.NONE);
+            if(Lua.LUA_JAVA_OO)
+                return invokeBestMethod(uservalue.touserdata(), LuaValue.NONE);
+            else
+                return error("method cannot be called without instance");
         }
 
         public LuaValue call(LuaValue arg) {
-            return invokeBestMethod(getuservalue(), arg);
+            if(Lua.LUA_JAVA_OO)
+                return invokeBestMethod(uservalue.touserdata(), arg);
+            else
+                return invokeBestMethod(arg.checkuserdata(), LuaValue.NONE);
         }
 
         public LuaValue call(LuaValue arg1, LuaValue arg2) {
-            return invokeBestMethod(getuservalue(), LuaValue.varargsOf(arg1, arg2));
+            if(Lua.LUA_JAVA_OO)
+                return invokeBestMethod(uservalue.touserdata(), LuaValue.varargsOf(arg1, arg2));
+            else
+                return invokeBestMethod(arg1.checkuserdata(), arg2);
         }
 
         public LuaValue call(LuaValue arg1, LuaValue arg2, LuaValue arg3) {
-            return invokeBestMethod(getuservalue(), LuaValue.varargsOf(arg1, arg2, arg3));
+            if(Lua.LUA_JAVA_OO)
+                return invokeBestMethod(uservalue.touserdata(), LuaValue.varargsOf(arg1, arg2, arg3));
+            else
+                return invokeBestMethod(arg1.checkuserdata(), LuaValue.varargsOf(arg2, arg3));
+        }
+
+        public Varargs invoke(LuaValue[] args) {
+            return invoke(LuaValue.varargsOf(args));
         }
 
         public Varargs invoke(Varargs args) {
-            return invokeBestMethod(getuservalue(), args);
+            if(Lua.LUA_JAVA_OO)
+                return invokeBestMethod(uservalue.touserdata(), args);
+            else
+                return invokeBestMethod(args.checkuserdata(1), args.subargs(2));
         }
 
         private LuaValue invokeBestMethod(Object instance, Varargs args) {
@@ -166,6 +207,7 @@ class JavaMethod extends JavaMember {
             }
 
             // invoke it
+            best.setuservalue(uservalue);
             return best.invokeMethod(instance, args);
         }
     }

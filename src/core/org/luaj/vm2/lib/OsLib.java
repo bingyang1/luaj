@@ -205,7 +205,7 @@ public class OsLib extends TwoArgFunction {
 	 * OsLib class was loaded.
 	 */
 	protected double clock() {
-		return (System.nanoTime()-t0) / 1000000.;
+		return (System.nanoTime()-t0) / 1000000000.;
 	}
 
 	/**

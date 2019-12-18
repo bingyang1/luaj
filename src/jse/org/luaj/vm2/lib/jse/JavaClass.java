@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.luaj.vm2.LuaError;
 import org.luaj.vm2.LuaValue;
 import org.luaj.vm2.Varargs;
 
@@ -55,6 +56,7 @@ class JavaClass extends JavaInstance implements CoerceJavaToLua.Coercion {
     final HashMap<LuaValue, LuaValue> finalValueCache = new HashMap<>();
     final HashMap<LuaValue, LuaValue> getterCache = new HashMap<>();
     final HashMap<LuaValue, LuaValue> setterCache = new HashMap<>();
+    static final HashMap<LuaValue, LuaValue> classMethods = new HashMap<>();
 
     static final Map classes = Collections.synchronizedMap(new HashMap());
 
@@ -71,6 +73,13 @@ class JavaClass extends JavaInstance implements CoerceJavaToLua.Coercion {
         return j;
     }
 
+    static {
+        Method[] ms = Class.class.getMethods();
+        for (Method m : ms) {
+            classMethods.put(LuaValue.valueOf(m.getName()),JavaMethod.forMethod(m));
+        }
+    }
+
     JavaClass(Class c) {
         super(c);
         this.jclass = this;
@@ -84,6 +93,23 @@ class JavaClass extends JavaInstance implements CoerceJavaToLua.Coercion {
 
     @Override
     public LuaValue call(LuaValue arg) {
+        if(arg.istable()){
+            Class obj = (Class) touserdata();
+            if (obj.isInterface())
+                return LuajavaLib.createProxy(obj, arg);
+            if(Map.class.isAssignableFrom(obj))
+                return CoerceJavaToLua.coerce(new CoerceLuaToJava.MapCoercion(obj).coerce(arg));
+            if(List.class.isAssignableFrom(obj))
+                return CoerceJavaToLua.coerce(new CoerceLuaToJava.ListCoercion(obj).coerce(arg));
+            if((obj.getModifiers() & Modifier.ABSTRACT) != 0){
+                try {
+                    return LuajavaLib.override(obj,arg).call();
+                } catch (Exception e) {
+                    throw new LuaError(e);
+                }
+            }
+            return CoerceJavaToLua.coerce(new CoerceLuaToJava.ArrayCoercion(obj).coerce(arg));
+        }
         LuaValue m = get(NEW);
         return m.call(arg);
     }
@@ -174,7 +200,7 @@ class JavaClass extends JavaInstance implements CoerceJavaToLua.Coercion {
                     map.put(NEW, JavaConstructor.forConstructors((JavaConstructor[]) list.toArray(new JavaConstructor[list.size()])));
                     break;
             }
-
+            map.putAll(classMethods);
             for (Iterator it = namedlists.entrySet().iterator(); it.hasNext(); ) {
                 Entry e = (Entry) it.next();
                 String name = (String) e.getKey();

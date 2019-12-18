@@ -22,6 +22,7 @@
 package org.luaj.vm2.compiler;
 
 import com.myopicmobile.textwarrior.common.Pair;
+import com.myopicmobile.textwarrior.common.Quad;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -159,24 +160,63 @@ public class LexState extends Constants {
 
 	/* ORDER RESERVED */
 	final static String luaX_tokens [] = {
-	    "and", "break", "case", "continue", "default", "do", "else", "elseif",
-	    "end", "false", "for", "function", "goto", "if",
-	    "in", "local", "nil", "not", "or", "repeat",
-	    "return", "switch", "then", "true", "until", "while",
+	    "and", "break", "case", "catch", "continue", "default", "defer", "do", "else", "elseif",
+	    "end", "false", "finally", "for", "function", "goto", "if", "import",
+	    "in", "local", "module", "nil", "not", "or", "repeat",
+	    "return", "switch", "then", "true", "try", "until", "when", "while",
 	    "..", "...", "==", ">=", "<=", "~=","//","<<",">>",
 	    "::", "<eos>", "<number>", "<name>", "<string>", "<eof>",
 	};
 
-	final static int
-		/* terminal symbols denoted by reserved words */
-		TK_AND=257,  TK_BREAK=258, TK_CASE=259, TK_CONTINUE=260, TK_DEFAULT=261,  TK_DO=262, TK_ELSE=263, TK_ELSEIF=264,
-		TK_END=265, TK_FALSE=266, TK_FOR=267, TK_FUNCTION=268, TK_GOTO=269, TK_IF=270,
-		TK_IN=271, TK_LOCAL=272, TK_NIL=273, TK_NOT=274, TK_OR=275, TK_REPEAT=276,
-		TK_RETURN=277, TK_SWITCH=278, TK_THEN=279, TK_TRUE=280, TK_UNTIL=281, TK_WHILE=282,
-		/* other terminal symbols */
-		TK_CONCAT=283, TK_DOTS=284, TK_EQ=285, TK_GE=286, TK_LE=287, TK_NE=288,
-	    TK_IDIV=289,TK_SHL=290,TK_SHR=291,
-		TK_DBCOLON=292, TK_EOS=293, TK_NUMBER=294, TK_NAME=295, TK_STRING=296;
+	/* terminal symbols denoted by reserved words */
+	final static int TK_AND=257;
+	final static int TK_BREAK=TK_AND+1;
+	final static int TK_CASE=TK_BREAK+1;
+	final static int TK_CATCH=TK_CASE+1;
+	final static int TK_CONTINUE=TK_CATCH+1;
+	final static int TK_DEFAULT=TK_CONTINUE+1;
+	final static int TK_DEFER=TK_DEFAULT+1;
+	final static int TK_DO=TK_DEFER+1;
+	final static int TK_ELSE=TK_DO+1;
+	final static int TK_ELSEIF=TK_ELSE+1;
+	final static int TK_END=TK_ELSEIF+1;
+	final static int TK_FALSE=TK_END+1;
+	final static int TK_FINALLY=TK_FALSE+1;
+	final static int TK_FOR=TK_FINALLY+1;
+	final static int TK_FUNCTION=TK_FOR+1;
+	final static int TK_GOTO=TK_FUNCTION+1;
+	final static int TK_IF=TK_GOTO+1;
+	final static int TK_IMPORT=TK_IF+1;
+	final static int TK_IN=TK_IMPORT+1;
+	final static int TK_LOCAL=TK_IN+1;
+	final static int TK_MODULE=TK_LOCAL+1;
+	final static int TK_NIL=TK_MODULE+1;
+	final static int TK_NOT=TK_NIL+1;
+	final static int TK_OR=TK_NOT+1;
+	final static int TK_REPEAT=TK_OR+1;
+	final static int TK_RETURN=TK_REPEAT+1;
+	final static int TK_SWITCH=TK_RETURN+1;
+	final static int TK_THEN=TK_SWITCH+1;
+	final static int TK_TRUE=TK_THEN+1;
+	final static int TK_TRY=TK_TRUE+1;
+	final static int TK_UNTIL=TK_TRY+1;
+	final static int TK_WHEN=TK_UNTIL+1;
+	final static int TK_WHILE=TK_WHEN+1;
+	/* other terminal symbols */
+	final static int TK_CONCAT=TK_WHILE+1;
+	final static int TK_DOTS=TK_CONCAT+1;
+	final static int TK_EQ=TK_DOTS+1;
+	final static int TK_GE=TK_EQ+1;
+	final static int TK_LE=TK_GE+1;
+	final static int TK_NE=TK_LE+1;
+	final static int TK_IDIV=TK_NE+1;
+	final static int TK_SHL=TK_IDIV+1;
+	final static int TK_SHR=TK_SHL+1;
+	final static int TK_DBCOLON=TK_SHR+1;
+	final static int TK_EOS=TK_DBCOLON+1;
+	final static int TK_NUMBER=TK_EOS+1;
+	final static int TK_NAME=TK_NUMBER+1;
+	final static int TK_STRING=TK_NAME+1;
 	  
 	final static int FIRST_RESERVED = TK_AND;
 	final static int NUM_RESERVED = TK_WHILE+1-FIRST_RESERVED;
@@ -269,13 +309,14 @@ public class LexState extends Constants {
 	private boolean isspace(int c) {
 		return testprop(c, MASK(SPACEBIT));
 	}
-    private boolean bool;
+    private boolean inLexer;
 	public LexState(LuaC.CompileState state, InputStream stream, boolean bool) {
 		this.z = stream;
 		this.buff = new char[32];
 		this.L = state;
-		this.bool=bool;
+		this.inLexer = bool;
 	}
+
 	public LexState(LuaC.CompileState state, InputStream stream) {
 		this.z = stream;
 		this.buff = new char[32];
@@ -336,19 +377,21 @@ public class LexState extends Constants {
 	public static int errorline;
 	public static int erroridx;
 	void lexerror( String msg, int token ) {
-		if(bool){
-			errormsg=msg;
-			errorline=linenumber;
-			erroridx=currentidx;
-			return;
-		}
 		String cid = Lua.chunkid( source.tojstring() );
 		if ( token != 0 )
 			msg=L.pushfstring( linenumber+": syntax error: "+msg+" near "+txtToken(token) );
 		else
 			msg=L.pushfstring( cid+":"+linenumber+": "+msg );
 
-
+		if(inLexer){
+			if(erroridx<0){
+				errormsg=msg;
+				//errorline=linenumber;
+				erroridx=lastidx;
+			}
+			next();
+			return;
+		}
 		throw new LuaError(msg);
 	}
 
@@ -363,7 +406,7 @@ public class LexState extends Constants {
 
 	LuaString newstring( char[] chars, int offset, int len ) {
 		LuaString s = L.newTString(LuaString.valueOf(chars, offset, len));
-		if(bool){
+		if(inLexer){
 			currentidx-=len;
 			currentidx+=s.tojstring().length();
 		}
@@ -554,12 +597,12 @@ public class LexState extends Constants {
 			case '\r': {
 				save('\n');
 				inclinenumber();
-				if (seminfo == null&&!bool)
+				if (seminfo == null&&!inLexer)
 					nbuff = 0; /* avoid wasting space */
 				break;
 			}
 			default: {
-				if (seminfo != null||bool)
+				if (seminfo != null|| inLexer)
 					save_and_next();
 				else
 					nextChar();
@@ -568,7 +611,7 @@ public class LexState extends Constants {
 		}
 		if (seminfo != null)
 			seminfo.ts = newstring(buff, 2 + sep, nbuff - 2 * (2 + sep));
-		else if(bool)
+		else if(inLexer)
 			newstring(buff, 2 + sep, nbuff - 2 * (2 + sep));
 	}
 
@@ -695,7 +738,7 @@ public class LexState extends Constants {
 					}
 				}
 				/* else short comment */
-				if(bool){
+				if(inLexer){
 					while (!currIsNewline() && current != EOZ)
 						save_and_next();
 					newstring(buff, 0, nbuff);
@@ -844,6 +887,15 @@ public class LexState extends Constants {
 			lookahead.token = TK_EOS; /* and discharge it */
 		} else
 			t.token = llex(t.seminfo); /* read next token */
+		/*if(inLexer){
+			if(t.token>=TK_AND&&t.token<=TK_WHILE){
+				tokens.add(new Pair(currentidx-lastidx,Lexer.KEYWORD));
+			} else if(t.token==TK_STRING){
+				tokens.add(new Pair(currentidx-lastidx,Lexer.STRING));
+			}else {
+				tokens.add(new Pair(currentidx-lastidx,Lexer.NORMAL));
+			}
+		}*/
 	}
 
 	void lookahead() {
@@ -1019,6 +1071,7 @@ public class LexState extends Constants {
 			if (where == linenumber)
 				error_expected(what);
 			else {
+				errorline=where;
 				syntaxerror(L.pushfstring(LUA_QS(token2str(what))
 						+ " expected " + "(to close " + LUA_QS(token2str(who))
 						+ " at line " + where + ")"));
@@ -1033,7 +1086,15 @@ public class LexState extends Constants {
 		next();
 		return ts;
 	}
-	
+
+	LuaString str_check() {
+		LuaString ts;
+		check(TK_STRING);
+		ts = t.seminfo.ts;
+		next();
+		return ts;
+	}
+
 	void codestring(expdesc e, LuaString s) {
 		e.init(VK, fs.stringK(s));
 	}
@@ -1042,6 +1103,11 @@ public class LexState extends Constants {
 		codestring(e, str_checkname());
 	}
 
+	LuaString checkstring(expdesc e) {
+		LuaString str = str_check();
+		codestring(e, str);
+		return str;
+	}
 	
 	int registerlocalvar(LuaString varname) {
 		FuncState fs = this.fs;
@@ -1087,7 +1153,7 @@ public class LexState extends Constants {
 		LuaString varname = this.str_checkname();
 		FuncState fs = this.fs;
 		int vartype = FuncState.singlevaraux(fs, varname, var, 1);
-		if(bool){
+		if(inLexer){
 			String n = varname.tojstring();
 			ArrayList<Pair> a = valueMap.get(n);
 			if (a == null) {
@@ -1097,7 +1163,7 @@ public class LexState extends Constants {
 			a.add(new Pair(lastidx, vartype));
 		}
 
-		if( vartype == VVOID && Lua.LUA_FUNC_ENV){
+		if( vartype != VLOCAL && Lua.LUA_FUNC_ENV){
 			if(varname.eq_b(this.envn)){
 				var.init(VENV,NO_REG);
 				return;
@@ -1105,7 +1171,7 @@ public class LexState extends Constants {
 		}
 
 		if ( vartype == VVOID) { /* global name? */
-			if(bool)
+			if(inLexer)
 			    globals.add(varname);
 			expdesc key = new expdesc();
 			vartype = FuncState.singlevaraux(fs, this.envn, var, 1);  /* get environment variable */
@@ -1340,16 +1406,31 @@ public class LexState extends Constants {
 		expdesc key = new expdesc();
 		expdesc val = new expdesc();
 		int rkkey;
-		if (this.t.token == TK_NAME) {
+		boolean isstr=false;
+		boolean isfunc=false;
+		if(this.t.token == TK_FUNCTION){
+			isfunc=true;
+			fs.checklimit(cc.nh, MAX_INT, "items in a constructor");
+			next();
+			this.checkname(key);
+		} else if (this.t.token == TK_STRING) {
+			isstr=true;
+			fs.checklimit(cc.nh, MAX_INT, "items in a constructor");
+			this.checkstring(key);
+		} else if (this.t.token == TK_NAME) {
 			fs.checklimit(cc.nh, MAX_INT, "items in a constructor");
 			this.checkname(key);
 		} else
 			/* this.t.token == '[' */
 			this.yindex(key);
 		cc.nh++;
-		this.checknext('=');
+		if(!isfunc&&(!isstr||!testnext(':')))
+		    this.checknext('=');
 		rkkey = fs.exp2RK(key);
-		this.expr(val);
+		if(isfunc)
+			this.body(val,false,this.linenumber);
+		else
+		    this.expr(val);
 		fs.codeABC(Lua.OP_SETTABLE, cc.t.u.info, rkkey, fs.exp2RK(val));
 		fs.freereg = (short)reg; /* free registers */
 	}
@@ -1364,6 +1445,8 @@ public class LexState extends Constants {
 
 	void constructor(expdesc t) {
 		/* constructor -> ?? */
+		int startidx = currentidx;
+		int startline = linenumber;
 		FuncState fs = this.fs;
 		int line = this.linenumber;
 		int pc = fs.codeABC(Lua.OP_NEWTABLE, 0, 0, 0);
@@ -1380,6 +1463,22 @@ public class LexState extends Constants {
 				break;
 			fs.closelistfield(cc);
 			switch (this.t.token) {
+			case TK_STRING:
+					this.lookahead();
+					if (this.lookahead.token != '='&&this.lookahead.token != ':') /* expression? */
+						this.listfield(cc);
+					else
+						this.recfield(cc);
+					break;
+
+				case TK_FUNCTION:
+					this.lookahead();
+					if (this.lookahead.token != TK_NAME) /* expression? */
+						this.listfield(cc);
+					else
+						this.recfield(cc);
+					break;
+
 			case TK_NAME: { /* may be listfields or recfields */
 				this.lookahead();
 				if (this.lookahead.token != '=') /* expression? */
@@ -1398,6 +1497,9 @@ public class LexState extends Constants {
 			}
 			}
 		} while (this.testnext(',') || this.testnext(';'));
+		if(inLexer){
+			lines.add(new Quad(startidx,startline,currentidx-1,linenumber));
+		}
 		this.check_match('}', '{', line);
 		fs.lastlistfield(cc);
 		InstructionPtr i = new InstructionPtr(fs.f.code, pc);
@@ -1477,13 +1579,13 @@ public class LexState extends Constants {
 	  fs.reserveregs(fs.nactvar);  /* reserve register for parameters */
 	}
 
-
 	void body(expdesc e, boolean needself, int line) {
 		/* body -> `(' parlist `)' chunk END */
+		int startidx = currentidx;
+		int startline = linenumber;
 		FuncState new_fs = new FuncState();
 		BlockCnt bl = new BlockCnt();
 		new_fs.f = addprototype();
-
 		new_fs.f.linedefined = line;
 		new_fs.f.startidx=currentidx;
 		open_func(new_fs, bl);
@@ -1494,7 +1596,8 @@ public class LexState extends Constants {
 		}
 		this.parlist();
 		this.checknext(')');
-        if(Lua.LUA_LOCAL_ENV) {
+		boolean left=this.testnext('{');
+		if(Lua.LUA_LOCAL_ENV) {
 			this.new_localvar(this.envn);
 			expdesc env = new expdesc();
 			FuncState.singlevaraux(fs, this.envn, env, 1);
@@ -1504,11 +1607,110 @@ public class LexState extends Constants {
 		this.statlist();
 		new_fs.f.endidx=currentidx;
 		new_fs.f.lastlinedefined = this.linenumber;
-		this.check_match(TK_END, TK_FUNCTION, line);
+		this.codeclosure(e);
+		this.close_func();
+		if(inLexer){
+			if(left)
+				lines.add(new Quad(startidx,startline,currentidx-1,linenumber));
+			else
+				lines.add(new Quad(startidx,startline,currentidx-3,linenumber));
+		}
+		if(left)
+			this.check_match('}', TK_FUNCTION, line);
+		else
+			this.check_match(TK_END, TK_FUNCTION, line);
+	}
+
+	void deferbody(expdesc e, int line) {
+		/* body -> `(' parlist `)' chunk END */
+		FuncState new_fs = new FuncState();
+		BlockCnt bl = new BlockCnt();
+		new_fs.f = addprototype();
+		new_fs.f.linedefined = line;
+		new_fs.f.startidx=currentidx;
+		open_func(new_fs, bl);
+		boolean hasarg = this.testnext('(');
+		if(hasarg){
+			this.parlist();
+			this.checknext(')');
+		}
+		this.statement();
+		new_fs.f.endidx=currentidx;
+		new_fs.f.lastlinedefined = this.linenumber;
 		this.codeclosure(e);
 		this.close_func();
 	}
-	
+
+	void whenbody(expdesc e, int line) {
+		/* body -> `(' parlist `)' chunk END */
+		int startidx = currentidx;
+		int startline = linenumber;
+		FuncState new_fs = new FuncState();
+		BlockCnt bl = new BlockCnt();
+		new_fs.f = addprototype();
+		new_fs.f.linedefined = line;
+		new_fs.f.startidx=currentidx;
+		open_func(new_fs, bl);
+		boolean left = this.testnext('(');
+		expdesc control = new expdesc();
+		expr(control); /* read control */
+		if(left){
+			this.checknext(')');
+			left=this.testnext('{');
+		}
+
+		IntPtr escapelist = new IntPtr(NO_JUMP);  /* exit list for finished parts */
+
+		while (t.token == TK_CASE){
+			test_case_block(escapelist,control.clone());  /* CASE cond THEN block */
+		}
+		if (testnext(TK_DEFAULT))
+			block();  /* `default' part */
+
+		fs.patchtohere(escapelist.i);  /* patch escape list to 'switch' end */
+
+		new_fs.f.endidx=currentidx;
+		new_fs.f.lastlinedefined = this.linenumber;
+		this.codeclosure(e);
+		this.close_func();
+		if(inLexer){
+			if(left)
+				lines.add(new Quad(startidx,startline,currentidx-1,linenumber));
+			else
+				lines.add(new Quad(startidx,startline,currentidx-3,linenumber));
+		}
+		if(left)
+			this.check_match('}', TK_WHEN, line);
+		else
+			this.check_match(TK_END, TK_WHEN, line);
+	}
+
+	boolean trybody(expdesc e, int token, int line) {
+		/* body -> `(' parlist `)' chunk END */
+		FuncState new_fs = new FuncState();
+		BlockCnt bl = new BlockCnt();
+		new_fs.f = addprototype();
+		new_fs.f.linedefined = line;
+		new_fs.f.startidx=currentidx;
+		open_func(new_fs, bl);
+		if(token==TK_CATCH){
+			boolean hasarg = this.testnext('(');
+			if(hasarg){
+				this.parlist();
+				this.checknext(')');
+			}
+		}
+		boolean left=this.testnext('{');
+		this.statlist();
+		new_fs.f.endidx=currentidx;
+		new_fs.f.lastlinedefined = this.linenumber;
+		this.codeclosure(e);
+		this.close_func();
+		if(left)
+			check_match('}', token, line);
+		return left;
+	}
+
 	int explist(expdesc v) {
 		/* explist1 -> expr { `,' expr } */
 		int n = 1; /* at least one expression */
@@ -1590,7 +1792,7 @@ public class LexState extends Constants {
 			return;
 		}
 		default: {
-			this.syntaxerror("unexpected symbol " + t.token + " (" + ((char) t.token) + ")");
+			this.syntaxerror("unexpected symbol " + t.token);
 			return;
 		}
 		}
@@ -1684,6 +1886,11 @@ public class LexState extends Constants {
 			this.body(v, false, this.linenumber);
 			return;
 		}
+			case TK_WHEN: {
+				this.next();
+				this.whenstat(v); /* stat -> funcstat */
+				return;
+			}
 		default: {
 			this.suffixedexp(v);
 			return;
@@ -1832,6 +2039,8 @@ public class LexState extends Constants {
 		switch (t.token) {
 		    case TK_ELSE: case TK_ELSEIF: case TK_END: case TK_EOS:
 			case TK_CASE: case TK_DEFAULT:
+			case TK_CATCH:case TK_FINALLY:
+			case '}':
 				return true;
 			case TK_UNTIL: 
 		    	return withuntil;
@@ -1975,32 +2184,52 @@ public class LexState extends Constants {
 			dyd.label[l].nactvar = fs.bl.nactvar;
 		}
 		findgotos(dyd.label[l]);
-}
+    }
 
-	
 	void whilestat (int line) {
 		/* whilestat -> WHILE cond DO block END */
+		int startidx = currentidx;
+		int startline = linenumber;
 		FuncState fs = this.fs;
 		int whileinit;
 		int condexit;
 		BlockCnt bl = new BlockCnt();
 		this.next();  /* skip WHILE */
+		boolean left=this.testnext('(');
 		whileinit = fs.getlabel();
 		condexit = this.cond();
 		fs.enterblock(bl, true);
-		this.testnext(TK_DO);
+		if(left){
+			this.checknext(')');
+			left=this.testnext('{');
+		}
+		if(!left){
+			this.testnext(TK_DO);
+		}
 		this.block();
 		continuelabel();
 		fs.patchlist(fs.jump(), whileinit);
-		this.check_match(TK_END, TK_WHILE, line);
+		if(inLexer){
+			if(left)
+				lines.add(new Quad(startidx,startline,currentidx-1,linenumber));
+			else
+				lines.add(new Quad(startidx,startline,currentidx-3,linenumber));
+		}
+		if(left)
+			this.check_match('}', TK_WHILE, line);
+		else
+		    this.check_match(TK_END, TK_WHILE, line);
 		fs.leaveblock();
 		fs.patchtohere(condexit);  /* false conditions finish the loop */
 	}
 
 	void repeatstat(int line) {
 		/* repeatstat -> REPEAT block UNTIL cond */
+		int startidx = currentidx;
+		int startline = linenumber;
 		int condexit;
 		FuncState fs = this.fs;
+		boolean left=this.testnext('{');
 		int repeat_init = fs.getlabel();
 		BlockCnt bl1 = new BlockCnt();
 		BlockCnt bl2 = new BlockCnt();
@@ -2009,6 +2238,15 @@ public class LexState extends Constants {
 		this.next(); /* skip REPEAT */
 		this.statlist();
 		continuelabel();
+		if(inLexer){
+			if(left)
+				lines.add(new Quad(startidx,startline,currentidx-1,linenumber));
+			else
+				lines.add(new Quad(startidx,startline,currentidx-3,linenumber));
+		}
+		if(left){
+			this.check_match('}', TK_REPEAT, line);
+		}
 		this.check_match(TK_UNTIL, TK_REPEAT, line);
 		condexit = this.cond(); /* read condition (inside scope block) */
 		if (bl2.upval) { /* upvalues? */
@@ -2030,13 +2268,19 @@ public class LexState extends Constants {
 	}
 
 
-	void forbody(int base, int line, int nvars, boolean isnum) {
+	boolean forbody(int base, int line, int nvars, boolean isnum, boolean left) {
 		/* forbody -> DO block */
 		BlockCnt bl = new BlockCnt();
 		FuncState fs = this.fs;
 		int prep, endfor;
 		this.adjustlocalvars(3); /* control variables */
-		this.testnext(TK_DO);
+		if(left){
+			this.checknext(')');
+			left=this.testnext('{');
+		}
+		if(!left){
+			this.testnext(TK_DO);
+		}
 		prep = isnum ? fs.codeAsBx(Lua.OP_FORPREP, base, NO_JUMP) : fs.jump();
 		fs.enterblock(bl, false); /* scope for declared variables */
 		this.adjustlocalvars(nvars);
@@ -2054,10 +2298,39 @@ public class LexState extends Constants {
 		}
 		fs.patchlist(endfor, prep + 1);
 		fs.fixline(line);
+		return left;
 	}
 
+	boolean foreachbody(int base, int line, int nvars, boolean left) {
+		/* forbody -> DO block */
+		BlockCnt bl = new BlockCnt();
+		FuncState fs = this.fs;
+		int prep, endfor;
+		this.adjustlocalvars(3); /* control variables */
+		if(left){
+			this.checknext(')');
+			left=this.testnext('{');
+		}
+		if(!left){
+			this.testnext(TK_DO);
+		}
+		prep = fs.jump();
+		fs.enterblock(bl, false); /* scope for declared variables */
+		this.adjustlocalvars(nvars);
+		fs.reserveregs(nvars);
+		this.block();
+		continuelabel();
+		fs.leaveblock(); /* end of scope for declared variables */
+		fs.patchtohere(prep);
+		fs.codeABC(Lua.OP_TFOREACH, base, 0, nvars);
+		fs.fixline(line);
+		endfor = fs.codeAsBx(Lua.OP_TFORLOOP, base + 2, NO_JUMP);
+		fs.patchlist(endfor, prep + 1);
+		fs.fixline(line);
+		return left;
+	}
 
-	void fornum(LuaString varname, int line) {
+	boolean fornum(LuaString varname, int line, boolean left) {
 		/* fornum -> NAME = exp1,exp1[,exp1] forbody */
 		FuncState fs = this.fs;
 		int base = fs.freereg;
@@ -2075,11 +2348,11 @@ public class LexState extends Constants {
 			fs.codeABx(Lua.OP_LOADK, fs.freereg, fs.numberK(LuaInteger.valueOf(1)));
 			fs.reserveregs(1);
 		}
-		this.forbody(base, line, 1, true);
+		return this.forbody(base, line, 1, true, left);
 	}
 
 
-	void forlist(LuaString indexname) {
+	boolean forlist(LuaString indexname, boolean left) {
 		/* forlist -> NAME {,NAME} IN explist1 forbody */
 		FuncState fs = this.fs;
 		expdesc e = new expdesc();
@@ -2096,47 +2369,72 @@ public class LexState extends Constants {
 			this.new_localvar(this.str_checkname());
 			++nvars;
 		}
+		boolean foreach = this.testnext(':');
 		this.testnext(TK_IN);
 		line = this.linenumber;
 		this.adjust_assign(3, this.explist(e), e);
 		fs.checkstack(3); /* extra space to call generator */
-		this.forbody(base, line, nvars - 3, false);
+		if(foreach)
+			return this.foreachbody(base,line,nvars-3, left);
+		else
+		    return this.forbody(base, line, nvars - 3, false, left);
 	}
 
 
 	void forstat(int line) {
 		/* forstat -> FOR (fornum | forlist) END */
+		int startidx = currentidx;
+		int startline = linenumber;
 		FuncState fs = this.fs;
 		LuaString varname;
 		BlockCnt bl = new BlockCnt();
 		fs.enterblock(bl, true); /* scope for loop and control variables */
 		this.next(); /* skip `for' */
+		boolean left = this.testnext('(');
 		varname = this.str_checkname(); /* first variable name */
 		switch (this.t.token) {
 		case '=':
-			this.fornum(varname, line);
+			left = this.fornum(varname, line, left);
 			break;
 		case ',':
 		case TK_IN:
-			this.forlist(varname);
+			left = this.forlist(varname, left);
 			break;
 		default:
-			this.forlist(varname);
+			left = this.forlist(varname, left);
 			//this.syntaxerror(LUA_QL("=") + " or " + LUA_QL("in") + " expected");
 		}
-		this.check_match(TK_END, TK_FOR, line);
+		if(inLexer){
+			if(left)
+				lines.add(new Quad(startidx,startline,currentidx-1,linenumber));
+			else
+				lines.add(new Quad(startidx,startline,currentidx-3,linenumber));
+		}
+		if(left)
+			this.check_match('}', TK_FOR, line);
+		else
+		    this.check_match(TK_END, TK_FOR, line);
 		fs.leaveblock(); /* loop scope (`break' jumps to this point) */
 	}
 
 
-	void test_then_block(IntPtr escapelist) {
+	boolean test_then_block(IntPtr escapelist) {
 		/* test_then_block -> [IF | ELSEIF] cond THEN block */
 		expdesc v = new expdesc();
 		BlockCnt bl = new BlockCnt();
 		int jf=0;  /* instruction to skip 'then' code (if condition is false) */
+		int token = t.token;
+		int line = this.linenumber;
 		this.next(); /* skip IF or ELSEIF */
+		boolean left=this.testnext('(');
 		expr(v);  /* read expression */
-		this.testnext(TK_THEN);
+		if(left){
+			this.checknext(')');
+			left=this.testnext('{');
+		}
+		if(!left){
+			this.testnext(TK_THEN);
+		}
 		if (t.token == TK_GOTO || t.token == TK_BREAK || t.token == TK_CONTINUE) {
 			fs.goiffalse(v); /* will jump to label if condition is true */
 			fs.enterblock(bl, false); /* must enter block before 'goto' */
@@ -2144,7 +2442,7 @@ public class LexState extends Constants {
 			skipnoopstat(); /* skip other no-op statements */
 			if (block_follow(false)) { /* 'goto' is the entire block? */
 				fs.leaveblock();
-				return; /* and that is it */
+				return left; /* and that is it */
 			} else
 				syntaxerror("unreachable statement");
   	            /* must skip over 'then' part if condition is false */
@@ -2156,58 +2454,38 @@ public class LexState extends Constants {
 		}
 		statlist(); /* `then' part */
 		fs.leaveblock();
+		if(left)
+			this.check_match('}', token, line);
 		if (t.token == TK_ELSE || t.token == TK_ELSEIF)
 			fs.concat(escapelist, fs.jump()); /* must jump over it */
 		fs.patchtohere(jf);
+		return left;
 	}
 
 
 	void ifstat(int line) {
+		int startidx = currentidx;
+		int startline = linenumber;
+		boolean left=false;
 		IntPtr escapelist = new IntPtr(NO_JUMP);  /* exit list for finished parts */
-		test_then_block(escapelist);  /* IF cond THEN block */
+		left=test_then_block(escapelist);  /* IF cond THEN block */
 		while (t.token == TK_ELSEIF)
-		    test_then_block(escapelist);  /* ELSEIF cond THEN block */
-		if (testnext(TK_ELSE))
-		    block();  /* `else' part */
-		check_match(TK_END, TK_IF, line);
-		fs.patchtohere(escapelist.i);  /* patch escape list to 'if' end */
-	}
-
-	void test_case_block3(IntPtr escapelist, expdesc control) {
-		/* test_case_block -> CASE value THEN block */
-		expdesc v = new expdesc();
-		BlockCnt bl = new BlockCnt();
-		int jf=0;  /* instruction to skip 'then' code (if condition is false) */
-		this.next(); /* skip CASE */
-		enterlevel();
-		fs.infix(OPR_EQ, control);
-		expr(v);  /* read condition */
-		fs.posfix(OPR_EQ, control, v, linenumber);
-		leavelevel();
-		this.testnext(TK_THEN);
-
-		if (t.token == TK_GOTO || t.token == TK_BREAK || t.token == TK_CONTINUE) {
-			fs.goiffalse(control); /* will jump to label if condition is true */
-			fs.enterblock(bl, false); /* must enter block before 'goto' */
-			gotostat(control.t.i); /* handle goto/break */
-			skipnoopstat(); /* skip other no-op statements */
-			if (block_follow(false)) { /* 'goto' is the entire block? */
-				fs.leaveblock();
-				return; /* and that is it */
-			} else
-				syntaxerror("unreachable statement");
-  	            /* must skip over 'case' part if condition is false */
-			//jf = fs.jump();
-		} else { /* regular case (not goto/break) */
-			fs.goiftrue(control); /* skip over block if condition is false */
-			fs.enterblock(bl, false);
-			jf = control.f.i;
+			left=test_then_block(escapelist);  /* ELSEIF cond THEN block */
+		if (testnext(TK_ELSE)){
+            left=this.testnext('{');
+			block();  /* `else' part */
+			if(left)
+				check_match('}', TK_IF, line);
 		}
-		statlist(); /* `case' part */
-		fs.leaveblock();
-		if (t.token == TK_CASE || t.token == TK_DEFAULT)
-			fs.concat(escapelist, fs.jump()); /* must jump over it */
-		fs.patchtohere(jf);
+		if(inLexer){
+			if(left)
+				lines.add(new Quad(startidx,startline,lastidx-1,lastline));
+			else
+			    lines.add(new Quad(startidx,startline,currentidx-3,linenumber));
+		}
+		if(!left)
+		    check_match(TK_END, TK_IF, line);
+		fs.patchtohere(escapelist.i);  /* patch escape list to 'if' end */
 	}
 
 	void test_case_block(IntPtr escapelist, expdesc control) {
@@ -2257,18 +2535,37 @@ public class LexState extends Constants {
 	}
 
 	void switchstat(int line) {
+		int startidx = currentidx;
+		int startline = linenumber;
 		IntPtr escapelist = new IntPtr(NO_JUMP);  /* exit list for finished parts */
 		expdesc control=new expdesc();
 		this.next(); /* skip SWITCH */
+		boolean left=this.testnext('(');
 		expr(control); /* read control */
-		this.testnext(TK_DO);
+		if(left){
+			this.checknext(')');
+			left=this.testnext('{');
+		}
+		if(!left){
+			this.testnext(TK_DO);
+		}
 		while (t.token == TK_CASE){
 			test_case_block(escapelist,control.clone());  /* CASE cond THEN block */
 		}
 		if (testnext(TK_DEFAULT))
 			block();  /* `default' part */
-		check_match(TK_END, TK_SWITCH, line);
+		if(inLexer){
+			if(left)
+				lines.add(new Quad(startidx,startline,currentidx-1,linenumber));
+			else
+				lines.add(new Quad(startidx,startline,currentidx-3,linenumber));
+		}
+		if(left)
+			check_match('}', TK_SWITCH, line);
+        else
+		    check_match(TK_END, TK_SWITCH, line);
 		fs.patchtohere(escapelist.i);  /* patch escape list to 'switch' end */
+
 	}
 
 	void localfunc() {
@@ -2279,6 +2576,120 @@ public class LexState extends Constants {
 		this.body(b, false, this.linenumber);
 		/* debug information will only see the variable after this point! */
 		fs.getlocvar(fs.nactvar - 1).startpc = fs.pc;
+	}
+
+	void importstat() {
+		FuncState fs = this.fs;
+		boolean left = this.testnext('(');
+		do{
+			String varname=null;
+			if(t.token==TK_NAME){
+				varname=this.str_checkname().tojstring();
+			}
+			LuaString classname = this.str_check();
+			if(varname==null){
+				varname = classname.tojstring();
+				int idx = varname.lastIndexOf(".");
+				if(idx>0)
+					varname = varname.substring(idx+1);
+			}
+			this.new_localvarliteral(varname);
+			this.adjustlocalvars(1);
+			fs.codeABx(Lua.OP_IMPORT, fs.nactvar - 1, fs.stringK(classname));
+			fs.reserveregs(1);
+		} while (this.testnext(','));
+		if(left)
+			this.checknext(')');
+	}
+
+	void modulestat() {
+		FuncState fs = this.fs;
+		boolean left = this.testnext('(');
+		LuaString classname = this.str_check();
+		this.new_localvar(this.envn);
+		this.adjustlocalvars(1);
+		fs.codeABx(Lua.OP_MODULE, fs.nactvar - 1, fs.stringK(classname));
+		fs.reserveregs(1);
+		if(left)
+			this.checknext(')');
+	}
+
+	void deferstat() {
+		expdesc b = new expdesc();
+		FuncState fs = this.fs;
+		this.new_localvarliteral("(defer)");
+		this.adjustlocalvars(1);
+		this.deferbody(b, this.linenumber);
+		/* debug information will only see the variable after this point! */
+		fs.codeABC(Lua.OP_DEFER,fs.nactvar - 1,0,0);
+		fs.getlocvar(fs.nactvar - 1).startpc = fs.pc;
+	}
+
+	void whenstat() {
+		expdesc b = new expdesc();
+		FuncState fs = this.fs;
+		this.new_localvarliteral("(when)");
+		this.adjustlocalvars(1);
+		this.whenbody(b, this.linenumber);
+		/* debug information will only see the variable after this point! */
+		fs.getlocvar(fs.nactvar - 1).startpc = fs.pc;
+		fs.codeABC(Lua.OP_CALL, fs.nactvar - 1, 0, 0);
+	}
+
+	void whenstat(expdesc b) {
+		FuncState fs = this.fs;
+		this.new_localvarliteral("(when)");
+		this.adjustlocalvars(1);
+		this.whenbody(b, this.linenumber);
+		/* debug information will only see the variable after this point! */
+		fs.getlocvar(fs.nactvar - 1).startpc = fs.pc;
+		b.init(VCALL, fs.codeABC(Lua.OP_CALL, fs.nactvar - 1, 0, 0));
+	}
+
+	void trystat() {
+		int startidx = currentidx;
+		int startline = linenumber;
+		int ra=0,rb=0,rc=0;
+		boolean left=false;
+		int line = this.linenumber;
+		expdesc b = new expdesc();
+		FuncState fs = this.fs;
+		ra = fs.freereg;
+		this.new_localvarliteral("(try)");
+		this.adjustlocalvars(1);
+		left=this.trybody(b, TK_TRY, this.linenumber);
+		/* debug information will only see the variable after this point! */
+		fs.getlocvar(fs.nactvar - 1).startpc = fs.pc;
+
+		if(this.testnext(TK_CATCH)){
+			rb = fs.freereg;
+			this.new_localvarliteral("(catch)");
+			this.adjustlocalvars(1);
+			left=this.trybody(b, TK_CATCH, this.linenumber);
+		    /* debug information will only see the variable after this point! */
+			fs.getlocvar(fs.nactvar - 1).startpc = fs.pc;
+		}
+
+		if(this.testnext(TK_FINALLY)){
+			rc = fs.freereg;
+			this.new_localvarliteral("(finally)");
+			this.adjustlocalvars(1);
+			left=this.trybody(b, TK_FINALLY, this.linenumber);
+		    /* debug information will only see the variable after this point! */
+			fs.getlocvar(fs.nactvar - 1).startpc = fs.pc;
+		}
+
+		if(inLexer){
+			if(left)
+				lines.add(new Quad(startidx,startline,lastidx-1,lastline));
+			else
+				lines.add(new Quad(startidx,startline,currentidx-3,linenumber));
+		}
+
+		if(!left)
+			check_match(TK_END, TK_TRY, line);
+
+		fs.codeABC(Lua.OP_TCALL, ra, rb, rc);
 	}
 
 	void loadlist(int n){
@@ -2301,7 +2712,7 @@ public class LexState extends Constants {
 		int nvars = 0;
 		int nexps;
 		expdesc e = new expdesc();
-		boolean def = testnext('=');
+		boolean def = testnext('=')||testnext(':');
 		do {
 			this.new_localvar(this.str_checkname());
 			++nvars;
@@ -2444,6 +2855,31 @@ public class LexState extends Constants {
 			this.funcstat(line); /* stat -> funcstat */
 			break;
 		}
+			case TK_IMPORT: {
+				this.next();
+				this.importstat(); /* stat -> deferstat */
+				break;
+			}
+			case TK_MODULE: {
+				this.next();
+				this.modulestat(); /* stat -> deferstat */
+				break;
+			}
+			case TK_DEFER: {
+				this.next();
+				this.deferstat(); /* stat -> deferstat */
+				break;
+			}
+			case TK_WHEN: {
+				this.next();
+				this.whenstat(); /* stat -> whenstat */
+				break;
+			}
+			case TK_TRY: {
+				this.next();
+				this.trystat(); /* stat -> trystat */
+				break;
+			}
 		case TK_LOCAL: { /* stat -> localstat */
 			this.next(); /* skip LOCAL */
 			if (this.testnext(TK_FUNCTION)) /* local function? */
@@ -2502,10 +2938,14 @@ public class LexState extends Constants {
 	** compiles the main function, which is a regular vararg function with an
 	** upvalue named LUA_FUNC_ENV
 	*/
+	public static ArrayList<Pair> tokens=new ArrayList<>();
+	public static ArrayList<Quad> lines=new ArrayList<>();
 	public void mainfunc(FuncState funcstate) {
-		if(bool){
+		if(inLexer){
 			globals.clear();
 			valueMap.clear();
+			tokens.clear();
+			lines.clear();
 			errormsg=null;
 			errorline=-1;
 			erroridx=-1;
