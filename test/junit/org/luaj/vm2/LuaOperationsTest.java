@@ -58,7 +58,7 @@ public class LuaOperationsTest extends TestCase {
 	private final LuaValue    somefunc      = new ZeroArgFunction() { public LuaValue call() { return NONE;}};
 	private final LuaThread   thread        = new LuaThread(new Globals(), somefunc);
 	private final Prototype   proto         = new Prototype(1);
-	private final LuaClosure  someclosure   = new LuaClosure(proto,table);
+	private final LuaClosure  someclosure   = new LuaClosure(proto,new Globals(), table);
 	private final LuaUserdata userdataobj   = LuaValue.userdataOf(sampleobject);
 	private final LuaUserdata userdatacls   = LuaValue.userdataOf(sampledata);
 	
@@ -168,7 +168,7 @@ public class LuaOperationsTest extends TestCase {
 			
 			// Test that a clusure with a custom enviroment uses that environment.
 			assertEquals( aaa, c.call() );
-			c = new LuaClosure(p, newenv);
+			c = new LuaClosure(p, new Globals(), newenv);
 			assertEquals( newenv, c.upValues[0].getValue() );
 			assertEquals( eee, c.call() );
 		}

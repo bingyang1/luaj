@@ -68,6 +68,10 @@ public class TableLib extends TwoArgFunction {
 		table.set("pack", new pack());
 		table.set("remove", new remove());
 		table.set("sort", new sort());
+		table.set("clone", new clone());
+		table.set("clear", new clear());
+		table.set("find", new find());
+		table.set("const", new _const());
 		table.set("unpack", new unpack());
 		env.set("table", table);
 		if (!env.get("package").isnil()) env.get("package").get("loaded").set("table", table);
@@ -145,7 +149,33 @@ public class TableLib extends TwoArgFunction {
 		}
 	}
 
-	
+	static class clone extends VarArgFunction {
+		public Varargs invoke(Varargs args) {
+			return args.checktable(1).clone();
+		}
+	}
+
+	static class clear extends VarArgFunction {
+		public Varargs invoke(Varargs args) {
+			args.checktable(1).clear();
+			return NONE;
+		}
+	}
+
+	static class find extends VarArgFunction {
+		public Varargs invoke(Varargs args) {
+			return args.checktable(1).find(args.arg(2),args.arg(3));
+		}
+	}
+
+	static class _const extends VarArgFunction {
+		public Varargs invoke(Varargs args) {
+			args.checktable(1)._const();
+			return NONE;
+		}
+	}
+
+
 	// "unpack", // (list [,i [,j]]) -> result1, ...
 	static class unpack extends VarArgFunction {
 		public Varargs invoke(Varargs args) {

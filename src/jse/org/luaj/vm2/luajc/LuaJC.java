@@ -129,4 +129,11 @@ public class LuaJC implements Globals.Loader {
 		String stub = s.endsWith(".lua")? s.substring(0,s.length()-4): s;
 		return stub;
 	}
+
+	public LuaFunction load(Prototype p, String name, Globals globals, LuaValue env) throws IOException {
+		String luaname = toStandardLuaFileName( name );
+		String classname = toStandardJavaClassName( luaname );
+		JavaLoader loader = new JavaLoader();
+		return loader.load(p, classname, luaname, env);
+	}
 }

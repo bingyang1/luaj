@@ -27,6 +27,7 @@ import java.io.InputStream;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.Lua;
 import org.luaj.vm2.LuaError;
+import org.luaj.vm2.LuaInteger;
 import org.luaj.vm2.LuaString;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.LuaThread;
@@ -78,7 +79,7 @@ import org.luaj.vm2.Varargs;
 public class BaseLib extends TwoArgFunction implements ResourceFinder {
 	
 	Globals globals;
-	
+
 
 	/** Perform one-time initialization on the library by adding base functions
 	 * to the supplied environment, and returning it as the return value.
@@ -108,6 +109,7 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 		env.set("select", new select());
 		env.set("setmetatable", new setmetatable());
 		env.set("tonumber", new tonumber());
+		env.set("tointeger", new tointeger());
 		env.set("tostring", new tostring());
 		env.set("type", new type());
 		env.set("xpcall", new xpcall());
@@ -120,7 +122,12 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 		env.set("next", next = new next());
 		env.set("pairs", new pairs(next));
 		env.set("ipairs", new ipairs());
-		
+		/*LuaTable g = new LuaTable();
+		LuaTable m = new LuaTable();
+		m.set("__index",env);
+		g.setmetatable(m);
+		if (!env.get("package").isnil()) env.get("package").get("loaded").set("_G", g);
+*/
 		return env;
 	}
 
@@ -359,7 +366,20 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 			return e.checkstring().tonumber(b);
 		}
 	}
-	
+	static final class tointeger extends LibFunction {
+		public LuaValue call(LuaValue e) {
+			return LuaInteger.valueOf(e.tolong());
+		}
+		public LuaValue call(LuaValue e, LuaValue base) {
+			if (base.isnil())
+				return call(e);
+			final int b = base.checkint();
+			if ( b < 2 || b > 36 )
+				argerror(2, "base out of range");
+			return call(e.checkstring().tonumber(b));
+		}
+	}
+
 	// "tostring", // (e) -> value
 	static final class tostring extends LibFunction {
 		public LuaValue call(LuaValue arg) {

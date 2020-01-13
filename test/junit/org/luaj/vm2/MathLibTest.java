@@ -2,7 +2,6 @@ package org.luaj.vm2;
 
 import junit.framework.TestCase;
 
-import org.luaj.vm2.lib.jme.JmePlatform;
 import org.luaj.vm2.lib.jse.JsePlatform;
 
 public class MathLibTest extends TestCase {
@@ -13,7 +12,7 @@ public class MathLibTest extends TestCase {
 
 	public MathLibTest() {
 		j2se = JsePlatform.standardGlobals().get("math");
-		j2me = JmePlatform.standardGlobals().get("math");
+		j2me = JsePlatform.standardGlobals().get("math");
 	}
 	
 	protected void setUp() throws Exception {

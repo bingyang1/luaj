@@ -21,8 +21,6 @@
 ******************************************************************************/
 package org.luaj.vm2.lib;
 
-import android.util.Log;
-
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.Lua;
 import org.luaj.vm2.LuaBoolean;
@@ -137,7 +135,6 @@ public class DebugLib extends TwoArgFunction {
 		debug.set("traceback", new traceback());
 		debug.set("upvalueid", new upvalueid());
 		debug.set("upvaluejoin", new upvaluejoin());
-		debug.set("setchecktype", new setchecktype());
 		env.set("debug", debug);
 		if (!env.get("package").isnil()) env.get("package").get("loaded").set("debug", debug);
 		return debug;
@@ -493,6 +490,7 @@ public class DebugLib extends TwoArgFunction {
 			if (f.isclosure()) {
 				Prototype p = f.checkclosure().p;
 				this.source = p.source != null ? p.source.tojstring() : "=?";
+				this.name = p.name != null ? p.name : "?";
 				this.linedefined = p.linedefined;
 				this.lastlinedefined = p.lastlinedefined;
 				this.what = (this.linedefined == 0) ? "main" : "Lua";
@@ -625,6 +623,14 @@ public class DebugLib extends TwoArgFunction {
 			    	  break;
 			      case 'n': {
 			    	  /* calling function is a known Lua function? */
+					  if(f.isclosure()){
+						  Prototype p = f.checkclosure().p;
+						  if(p.name!=null){
+							  ar.name = p.name;
+							  ar.namewhat = "final";
+							  break;
+						  }
+					  }
 			    	  if (ci != null && ci.previous != null) {
 			    		  if (ci.previous.f.isclosure()) {
 			    			  NameWhat nw = getfuncname(ci.previous);
@@ -754,14 +760,13 @@ public class DebugLib extends TwoArgFunction {
 		int i = p.code[pc]; /* calling instruction */
 		LuaString tm;
 		switch (Lua.GET_OPCODE(i)) {
-			case Lua.OP_DEFER:
 			case Lua.OP_TCALL:
 			case Lua.OP_CALL:
 			case Lua.OP_TAILCALL: /* get function name */
 				return getobjname(p, pc, Lua.GETARG_A(i));
 			case Lua.OP_TFOREACH:
 			case Lua.OP_TFORCALL: /* for iterator */
-		    	return new NameWhat("(for iterator)", "(for iterator");
+		    	return new NameWhat("(for iterator)", "(for iterator)");
 		    /* all other instructions can call only through metamethods */
 		    case Lua.OP_SELF:
 		    case Lua.OP_GETTABUP:
@@ -932,12 +937,4 @@ public class DebugLib extends TwoArgFunction {
 	  return setreg;
 	}
 
-	class setchecktype extends OneArgFunction {
-
-		@Override
-		public LuaValue call(LuaValue arg) {
-			globals.setCheckType(arg.checkint());
-			return NONE;
-		}
-	}
 }

@@ -68,7 +68,7 @@ public class TestLuaJC {
 			System.out.println("result: "+v);
 
 			// Write out the files.
-			// saveClasses();
+			 saveClasses();
 			
 		} catch ( Throwable e ) {
 			e.printStackTrace();

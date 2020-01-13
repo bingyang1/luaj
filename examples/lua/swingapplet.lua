@@ -5,7 +5,7 @@
 -- as the first argument.
 --
 -- Other Applet lifecycle events are forwarded by the SampleApplet
--- by looking for these global variables and invoking them:
+-- by looking for these global variables and invoking them.
 --   start()
 --   stop()
 --   paint(graphics)
@@ -18,7 +18,7 @@ local applet = (...)
 print('loading', applet)
 
 -- load the logo
-local logo = applet:getImage(applet:getDocumentBase(), "logo.gif")
+local logo = applet.getImage(applet.getDocumentBase(), "logo.gif")
 print('logo', logo)
 
 -- implement the applet painting, start, and stop methods.
@@ -26,10 +26,10 @@ local animate,render
 local prev, interval = 0,1/60
 function update(graphics)
 	-- avoids clearing background
-	applet:paint(graphics)
+	applet.paint(graphics)
 end
 function paint(graphics)
-	applet:repaint()
+	applet.repaint()
 	local curr = os.time()
 	local diff = curr - prev
 	if diff >= interval then
@@ -39,7 +39,7 @@ function paint(graphics)
 	end
 end
 function start()
-	applet:repaint()
+	applet.repaint()
 end
 function stop()
     -- do nothing
@@ -60,7 +60,7 @@ local advance = function(x,vx,max,rnd)
 end
 animate = function()
 	x1,y1,x2,y2 = x1+1,y1+1,x2-1,y2-1
-	local w,h = applet:getWidth(), applet:getHeight()
+	local w,h = applet.getWidth(), applet.getHeight()
 	x1,vx1 = advance(x1,vx1,w)
 	y1,vy1 = advance(y1,vy1,h)
 	x2,vx2 = advance(x2,vx2,w)
@@ -80,34 +80,34 @@ local bg = luajava.newInstance("java.awt.Color", 0x22112244,true);
 local fg = luajava.newInstance("java.awt.Color", 0xffaa33);
 local ct = luajava.newInstance("java.awt.Color", 0x44ffff33,true);
 render = function(graphics)
-	local w,h = applet:getWidth(), applet:getHeight()
-	graphics:setColor(bg)
-	graphics:fillRect(0,0,w,h)
+	local w,h = applet.getWidth(), applet.getHeight()
+	graphics.setColor(bg)
+	graphics.fillRect(0,0,w,h)
 
 	-- line
-	graphics:setColor(fg)
-	graphics:drawLine(x1,y1,x2,y2)
+	graphics.setColor(fg)
+	graphics.drawLine(x1,y1,x2,y2)
 	
 	-- text
-	graphics:setColor(ct)
-	graphics:translate(w/2,h/2)
+	graphics.setColor(ct)
+	graphics.translate(w/2,h/2)
 	for i,c in pairs(chars) do
 		local s = 200 / (256-c.n)
-		graphics:scale(s, s)
-		graphics:drawString(c.text, c.x-4, c.y+6)
-		graphics:scale(1/s, 1/s)
+		graphics.scale(s, s)
+		graphics.drawString(c.text, c.x-4, c.y+6)
+		graphics.scale(1/s, 1/s)
 	end
-	graphics:translate(-w/2,-h/2)
+	graphics.translate(-w/2,-h/2)
 
 	-- image
-	graphics:drawImage(logo,xi,yi)
+	graphics.drawImage(logo,xi,yi)
 end
 
 -- add mouse listeners for specific mouse events
-applet:addMouseListener(luajava.createProxy("java.awt.event.MouseListener", {
+applet.addMouseListener(luajava.createProxy("java.awt.event.MouseListener", {
 	mousePressed = function(e)
-		print('mousePressed', e:getX(), e:getY(), e)
-		x1,y1 = e:getX(),e:getY()
+		print('mousePressed', e.getX(), e.getY(), e)
+		x1,y1 = e.getX(),e.getY()
 	end,
 	-- mouseClicked = function(e) end, 
 	-- mouseEntered = function(e) end, 
@@ -115,19 +115,19 @@ applet:addMouseListener(luajava.createProxy("java.awt.event.MouseListener", {
 	-- mouseReleased = function(e) end, 
 }))
 
-applet:addMouseMotionListener(luajava.createProxy("java.awt.event.MouseMotionListener", {
+applet.addMouseMotionListener(luajava.createProxy("java.awt.event.MouseMotionListener", {
 	mouseDragged = function(e)
-		-- print('mouseDragged', e:getX(), e:getY(), e)
-		x2,y2 = e:getX(),e:getY()
+		-- print('mouseDragged', e.getX(), e.getY(), e)
+		x2,y2 = e.getX(),e.getY()
 	end,
 	-- mouseMoved= function(e) end, 
 }))
 
 -- add key listeners
-applet:addKeyListener(luajava.createProxy("java.awt.event.KeyListener", {
+applet.addKeyListener(luajava.createProxy("java.awt.event.KeyListener", {
 	keyPressed = function(e) 
-		local id, code, char = e:getID(), e:getKeyCode(), e:getKeyChar()
-		local text, s, c = e:getKeyText(code), pcall(string.char, char)
+		local id, code, char = e.getID(), e.getKeyCode(), e.getKeyChar()
+		local text, s, c = e.getKeyText(code), pcall(string.char, char)
 		print('key id, code, char, text, pcall(string.char,char)', id, code, char, text, c)
 		table.insert(chars, {
 			n=255, 

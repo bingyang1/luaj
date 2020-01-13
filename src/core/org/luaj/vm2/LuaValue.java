@@ -21,8 +21,6 @@
 ******************************************************************************/
 package org.luaj.vm2;
 
-import android.view.KeyEvent;
-
 import org.luaj.vm2.Varargs;
 import org.luaj.vm2.lib.jse.CoerceJavaToLua;
 import org.luaj.vm2.lib.jse.CoerceLuaToJava;
@@ -2152,7 +2150,7 @@ public class LuaValue extends Varargs {
 	 * whose value equals val,
 	 * otherwise false  
 	 */
-	public boolean raweq( int val )           { return false; }
+	public boolean raweq( long val )           { return false; }
 
 	/** Perform equality testing metatag processing 
 	 * @param lhs left-hand-side of equality expression
@@ -2284,7 +2282,7 @@ public class LuaValue extends Varargs {
 	 * @see #sub(double)
 	 * @see #sub(int)
 	 */
-	public LuaValue   subFrom(int lhs)        { return subFrom((double)lhs); }
+	public LuaValue   subFrom(long lhs)        { return subFrom((double)lhs); }
 	
 	/** Multiply: Perform numeric multiply operation with another value 
 	 * of unknown type, 
@@ -2397,7 +2395,7 @@ public class LuaValue extends Varargs {
 	 * @see #pow(double)
 	 * @see #pow(int)
 	 */
-	public LuaValue   powWith(int lhs)        { return powWith((double)lhs); }
+	public LuaValue   powWith(long lhs)        { return powWith((double)lhs); }
 	
 	/** Divide: Perform numeric divide operation by another value 
 	 * of unknown type, 
@@ -3178,7 +3176,8 @@ public class LuaValue extends Varargs {
 	 * @return {@link LuaInteger} instance, possibly pooled, whose value is i
 	 */
 	public static LuaInteger  valueOf(int i)        { return LuaInteger.valueOf(i); }
-	
+	public static LuaNumber  valueOf(long i)        { return LuaInteger.valueOf(i); }
+
 	/** Convert java double to a {@link LuaValue}.  
 	 * This may return a {@link LuaInteger} or {@link LuaDouble} depending 
 	 * on the value supplied.  

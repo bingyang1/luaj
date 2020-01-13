@@ -21,11 +21,11 @@
 ******************************************************************************/
 package org.luaj.vm2.lib.jse;
 
-import android.util.Log;
-
 import org.luaj.vm2.Varargs;
 import org.luaj.vm2.lib.VarArgFunction;
 import org.luaj.vm2.lib.jse.CoerceLuaToJava.Coercion;
+
+import java.lang.reflect.Array;
 
 /**
  * Java method or constructor.
@@ -47,13 +47,19 @@ class JavaMember extends VarArgFunction {
 
 	final Coercion[] fixedargs;
 	final Coercion varargs;
-	
+	private Coercion vararg2;
+	private Class varclass;
+
 	protected JavaMember(Class[] params, int modifiers) {
 		boolean isvarargs = ((modifiers & METHOD_MODIFIERS_VARARGS) != 0);
 		fixedargs = new CoerceLuaToJava.Coercion[isvarargs? params.length-1: params.length];
 		for ( int i=0; i<fixedargs.length; i++ )
 			fixedargs[i] = CoerceLuaToJava.getCoercion( params[i] );
 		varargs = isvarargs? CoerceLuaToJava.getCoercion( params[params.length-1] ): null;
+		if(isvarargs){
+			varclass=params[params.length-1].getComponentType();
+			vararg2 = CoerceLuaToJava.getCoercion( varclass );
+		}
 	}
 	
 	int score(Varargs args) {
@@ -61,9 +67,13 @@ class JavaMember extends VarArgFunction {
 		int s = n>fixedargs.length? CoerceLuaToJava.SCORE_WRONG_TYPE * (n-fixedargs.length): 0;
 		for ( int j=0; j<fixedargs.length; j++ )
 			s += fixedargs[j].score( args.arg(j+1) );
-		if ( varargs != null )
+		if ( varargs != null ){
+			if(n==fixedargs.length+1)
+				s += Math.min(varargs.score( args.arg(fixedargs.length+1)), vararg2.score( args.arg(fixedargs.length+1)));
+            else
 			for ( int k=fixedargs.length; k<n; k++ )
-				s += varargs.score( args.arg(k+1) );
+				s += vararg2.score( args.arg(k+1));
+		}
 		return s;
 	}
 	
@@ -74,12 +84,30 @@ class JavaMember extends VarArgFunction {
 			for ( int i=0; i<a.length; i++ )
 				a[i] = fixedargs[i].coerce( args.arg(i+1) );
 		} else {
-			int n = Math.max(fixedargs.length,args.narg());
-			a = new Object[n];
+			int n = args.narg();
+			a = new Object[fixedargs.length+1];
 			for ( int i=0; i<fixedargs.length; i++ )
-				a[i] = fixedargs[i].coerce( args.arg(i+1) );
+				a[i] = fixedargs[i].coerce( args.arg(i+1));
+			if(n==fixedargs.length+1&&varargs.score(args.arg(fixedargs.length+1))<0x100){
+				a[fixedargs.length] = varargs.coerce( args.arg(fixedargs.length+1) );
+			} else {
+				int m = Math.max(args.narg()-fixedargs.length,0);
+				Object v = Array.newInstance(varclass, m);
+				for ( int i=fixedargs.length; i<n; i++ )
+					Array.set(v,i-fixedargs.length, vararg2.coerce( args.arg(i+1)));
+				a[fixedargs.length]=v;
+			}
+
+			/*int n = Math.max(fixedargs.length,args.narg());
+			a = new Object[n];
+			int m = Math.max(args.narg()-fixedargs.length,0);
+			Object v = Array.newInstance(varclass, m);
+			for ( int i=0; i<fixedargs.length; i++ )
+				a[i] = fixedargs[i].coerce( args.arg(i+1));
 			for ( int i=fixedargs.length; i<n; i++ )
-				a[i] = varargs.coerce( args.arg(i+1) );
+				//a[i] = varargs.coerce( args.arg(i+1) );
+			    Array.set(v,i-fixedargs.length, varargs.coerce( args.arg(i+1)));
+			a[fixedargs.length]=v;*/
 		}
 		return a;
 	}

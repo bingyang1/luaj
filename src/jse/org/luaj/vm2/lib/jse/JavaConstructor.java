@@ -21,8 +21,6 @@
 ******************************************************************************/
 package org.luaj.vm2.lib.jse;
 
-import android.util.Log;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
@@ -71,7 +69,7 @@ class JavaConstructor extends JavaMember {
 	public Varargs invoke(Varargs args) {
 		Object[] a = convertArgs(args);
 		try {
-			return CoerceJavaToLua.coerce( constructor.newInstance(a) );
+			return new JavaInstance( constructor.newInstance(a) );
 		} catch (InvocationTargetException e) {
 			throw new LuaError(e.getTargetException());
 		} catch (Exception e) {

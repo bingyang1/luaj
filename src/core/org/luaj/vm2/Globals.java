@@ -137,11 +137,6 @@ public class Globals extends LuaTable {
 	
 	/** The DebugLib instance loaded into this Globals, or null if debugging is not enabled */
 	public DebugLib debuglib;
-	public int checkType=0;
-
-	public void setCheckType(int checkType) {
-		this.checkType = checkType;
-	}
 
     /** Interface for module that converts a Prototype into a LuaFunction with an environment. */
 	public interface Loader {
@@ -195,7 +190,7 @@ public class Globals extends LuaTable {
 		try {
 			return load(finder.findResource(filename), "@"+filename, "bt", env);
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			return error("load "+filename+": "+e);
 		}
 	}
@@ -274,7 +269,7 @@ public class Globals extends LuaTable {
 		} catch (LuaError l) {
 			throw l;
 		} catch (Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 			return error("load "+chunkname+": "+e);
 		}
 	}

@@ -21,8 +21,6 @@
 ******************************************************************************/
 package org.luaj.vm2.compiler;
 
-import android.util.Log;
-
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -90,14 +88,6 @@ public class LuaC extends Constants implements Globals.Compiler, Globals.Loader 
 		globals.loader = instance;
 	}
 
-    public static Prototype lexer(InputStream stream, String chunkname) throws IOException {
-		return (new CompileState()).luaY_parser2(stream, chunkname);
-	}
-
-	public static Prototype lexer(CharSequence stream, String chunkname) throws IOException {
-		return (new CompileState()).luaY_parser2(new ByteArrayInputStream(stream.toString().getBytes()), chunkname);
-	}
-
 	protected LuaC() {}
 
 	/** Compile lua source into a Prototype.
@@ -141,23 +131,6 @@ public class LuaC extends Constants implements Globals.Compiler, Globals.Loader 
 			LuaC._assert (funcstate.prev == null);
 			/* all scopes should be correctly finished */
 			LuaC._assert (lexstate.dyd == null 
-					|| (lexstate.dyd.n_actvar == 0 && lexstate.dyd.n_gt == 0 && lexstate.dyd.n_label == 0));
-			return funcstate.f;
-		}
-
-		private Prototype luaY_parser2(InputStream z, String name) throws IOException{
-			LexState lexstate = new LexState(this, z,true);
-			FuncState funcstate = new FuncState();
-			// lexstate.buff = buff;
-			lexstate.fs = funcstate;
-			lexstate.setinput(this, z.read(), z, (LuaString) LuaValue.valueOf(name) );
-			/* main func. is always vararg */
-			funcstate.f = new Prototype();
-			funcstate.f.source = (LuaString) LuaValue.valueOf(name);
-			lexstate.mainfunc(funcstate);
-			LuaC._assert (funcstate.prev == null);
-			/* all scopes should be correctly finished */
-			LuaC._assert (lexstate.dyd == null
 					|| (lexstate.dyd.n_actvar == 0 && lexstate.dyd.n_gt == 0 && lexstate.dyd.n_label == 0));
 			return funcstate.f;
 		}

@@ -88,10 +88,14 @@ public class Print extends Lua {
 			"NEWLIST",
 			"GETENV",
 			"SETENV",
-		  "EXTRAARG",
+			"DEFER",
+			"TFOREACH",
+			"TCALL",
+			"IMPORT",
+			"MODULE",
+			"EXTRAARG",
 		  null,
 	};
-
 
 	static void printString(PrintStream ps, final LuaString s) {
 		

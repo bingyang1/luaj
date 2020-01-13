@@ -22,7 +22,7 @@ end
 -- called on touch event
 function onTouchEvent(event)
 	-- print('onTouchEvent', event)
-	local x1, y1 = event:getX(), event:getY()
+	local x1, y1 = event.getX(), event.getY()
 	local i,j = math.floor(x1*256/W), math.floor(y1*256/H)
 	local u = i + j * 256
 	local c = u < 0x80 and string.char(u) or
@@ -58,13 +58,13 @@ end
 local prev, interval = os.time(), 1/60
 local Thread = luajava.bindClass('java.lang.Thread')
 function draw(canvas)
-	view:invalidate()
+	view.invalidate()
 	local curr = os.time()
 	local diff = curr - prev
 	if diff >= interval then
 		pcall(animate, canvas)
 		local wait = math.floor(1000 * (prev + interval - os.time()))
-		if wait > 0 then pcall(Thread.sleep, Thread, wait) end
+		if wait > 0 then pcall(Thread.sleep, wait) end
 		prev = os.time()
 	end
 	pcall(render, canvas)
@@ -107,46 +107,46 @@ print('Color, Paint, Style', Color, Paint, Style)
 
 -- colors that we use
 local text_color, line_color = Paint.new(), Paint.new()
-text_color:setColor(0xffffff33)
-text_color:setTextSize(8.0)
-line_color:setColor(0xffffaa33)
-line_color:setStrokeWidth(1.5)
-line_color:setStyle(Style.STROKE)
+text_color.setColor(0xffffff33-0x100000000)
+text_color.setTextSize(8.0)
+line_color.setColor(0xffffaa33-0x100000000)
+line_color.setStrokeWidth(1.5)
+line_color.setStyle(Style.STROKE)
 print('text_color, line_color', text_color, line_color)
 
 -- load the logo image
-local istream = view:findResource('logo.gif')
+local istream = view.findResource('logo.gif')
 print('istream', istream)
 local BitmapFactory = luajava.bindClass('android.graphics.BitmapFactory')
-local logo = BitmapFactory:decodeStream(istream)
+local logo = BitmapFactory.decodeStream(istream)
 print('logo', logo)
 
 -- the render step draws the scene
 render = function(canvas)
 	-- scale the drawing to approximagely 600 x 800
- 	W, H = canvas:getWidth(), canvas:getHeight();
+ 	W, H = canvas.getWidth(), canvas.getHeight();
  	local scale = (W + H) / (600 + 800)
- 	canvas:scale(scale, scale)
+ 	canvas.scale(scale, scale)
  	w, h = W / scale, H / scale
 
 	-- redraw the canvas
-	canvas:drawColor(0xff112244)
+	canvas.drawColor(0xff112244)
 
 	-- line
-	canvas:drawLine(x1, y1, x2, y2, line_color)
+	canvas.drawLine(x1, y1, x2, y2, line_color)
 	
 	-- text
-	canvas:translate(w/2,h/2)
+	canvas.translate(w/2,h/2)
 	for i,c in pairs(chars) do
 		local s = 200 / (256-c.n)
-		canvas:scale(s, s)
-		canvas:drawText(c.text, c.x-4, c.y+6, text_color)
-		canvas:scale(1/s, 1/s)
+		canvas.scale(s, s)
+		canvas.drawText(c.text, c.x-4, c.y+6, text_color)
+		canvas.scale(1/s, 1/s)
 	end
-	canvas:translate(-w/2,-h/2)
+	canvas.translate(-w/2,-h/2)
 
 	-- image
-	canvas:drawBitmap(logo,xi,yi)
+	canvas.drawBitmap(logo,xi,yi)
 end
 
 

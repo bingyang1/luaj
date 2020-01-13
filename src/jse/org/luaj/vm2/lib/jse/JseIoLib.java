@@ -96,7 +96,9 @@ public class JseIoLib extends IoLib {
 	
 	protected File openProgram(String prog, String mode) throws IOException {
 		final Process p = Runtime.getRuntime().exec(prog);
-		return "w".equals(mode)?
+		return "rw".equals(mode)?
+				new FileImpl( null, p.getInputStream(), p.getOutputStream() ):
+				"w".equals(mode)?
 				new FileImpl( p.getOutputStream() ):
 				new FileImpl( p.getInputStream() );
 	}

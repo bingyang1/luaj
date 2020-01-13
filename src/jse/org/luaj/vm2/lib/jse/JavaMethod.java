@@ -21,8 +21,6 @@
  ******************************************************************************/
 package org.luaj.vm2.lib.jse;
 
-import android.util.Log;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -207,6 +205,7 @@ class JavaMethod extends JavaMember {
             }
 
             // invoke it
+            if(Lua.LUA_JAVA_OO)
             best.setuservalue(uservalue);
             return best.invokeMethod(instance, args);
         }

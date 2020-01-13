@@ -50,7 +50,8 @@ class JavaArray extends LuaUserdata {
 	}
 
 	static final LuaValue LENGTH = valueOf("length");
-	
+	static final LuaValue CLASS = valueOf("class");
+
 	static final LuaTable array_metatable;
 	static {
 		array_metatable = new LuaTable();
@@ -73,6 +74,8 @@ class JavaArray extends LuaUserdata {
 	public LuaValue get(LuaValue key) {
 		if ( key.equals(LENGTH) )
 			return valueOf(Array.getLength(m_instance));
+		if ( key.equals(CLASS) )
+			return CoerceJavaToLua.coerce(m_instance.getClass());
 		if ( key.isint() ) {
 			int i = key.toint() - 1;
 			return i>=0 && i<Array.getLength(m_instance)?

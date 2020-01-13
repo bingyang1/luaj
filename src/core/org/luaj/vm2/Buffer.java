@@ -138,6 +138,24 @@ public final class Buffer {
 		return this;
 	}
 
+	public final Buffer append(char c) {
+		if ( (c) < 0x80 ) {
+			makeroom( 0, 1 );
+			bytes[ offset + length++ ] = (byte) c;
+		} else if ( c < 0x800 ) {
+			makeroom( 0, 2 );
+			bytes[ offset + length++ ] = (byte) (0xC0 | ((c>>6)  & 0x1f));
+			bytes[ offset + length++ ] = (byte) (0x80 | ( c      & 0x3f));
+		} else {
+			makeroom( 0, 3 );
+			bytes[ offset + length++ ] = (byte) (0xE0 | ((c>>12) & 0x0f));
+			bytes[ offset + length++ ] = (byte) (0x80 | ((c>>6)  & 0x3f));
+			bytes[ offset + length++ ] = (byte) (0x80 | ( c      & 0x3f));
+		}
+		return this;
+	}
+
+
 	/** 
 	 * Append a {@link LuaValue} to the buffer.
 	 * @return {@code this} to allow call chaining

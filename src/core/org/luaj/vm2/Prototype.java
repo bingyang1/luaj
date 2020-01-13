@@ -104,8 +104,9 @@ public class Prototype {
 	private static final Prototype[] NOSUBPROTOS = {};
 	public int endidx;
 	public int startidx;
+	public String name;
 
-	public Prototype() {
+    public Prototype() {
 		p = NOSUBPROTOS;
 		upvalues = NOUPVALUES;
 	}

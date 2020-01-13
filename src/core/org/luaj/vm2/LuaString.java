@@ -93,6 +93,14 @@ public class LuaString extends LuaValue {
 	 * because no LuaString whose backing exceeds this length will be put into the cache.
 	 * Exposed to package for testing. */
 	static final int RECENT_STRINGS_MAX_LENGTH = 32;
+	private char[] m_chars;
+	private String m_string;
+
+	public char[] toCharArray() {
+		if(m_chars==null)
+		    m_chars=toCharAsUtf8(m_bytes,m_offset,m_length);
+		return m_chars;
+	}
 
 	/** Simple cache of recently created strings that are short.
 	 * This is simply a list of strings, indexed by their hash codes modulo the cache size
@@ -257,7 +265,22 @@ public class LuaString extends LuaValue {
 	}
 	
 	public String tojstring() {
-		return decodeAsUtf8(m_bytes, m_offset, m_length);
+		if(m_string==null)
+		    m_string = decodeAsUtf8(m_bytes, m_offset, m_length);
+		return m_string;
+	}
+
+	public int lengthAsUtf8(){
+		int i,j,n,b;
+		for ( i=m_offset,j=m_offset+m_length,n=0; i<j; ++n ) {
+			switch (0xE0 & m_bytes[i++]) {
+				case 0xE0:
+					++i;
+				case 0xC0:
+					++i;
+			}
+		}
+		return n;
 	}
 
 	// unary operators
@@ -653,7 +676,23 @@ public class LuaString extends LuaValue {
 		}
 		return new String(chars);
 	}
-	
+	public static char[] toCharAsUtf8(byte[] bytes, int offset, int length) {
+		int i,j,n,b;
+		for ( i=offset,j=offset+length,n=0; i<j; ++n ) {
+			switch ( 0xE0 & bytes[i++] ) {
+				case 0xE0: ++i;
+				case 0xC0: ++i;
+			}
+		}
+		char[] chars=new char[n];
+		for ( i=offset,j=offset+length,n=0; i<j; ) {
+			chars[n++] = (char) (
+					((b=bytes[i++])>=0||i>=j)? b:
+							(b<-32||i+1>=j)? (((b&0x3f) << 6) | (bytes[i++]&0x3f)):
+									(((b&0xf) << 12) | ((bytes[i++]&0x3f)<<6) | (bytes[i++]&0x3f)));
+		}
+		return chars;
+	}
 	/**
 	 * Count the number of bytes required to encode the string as UTF-8.
 	 * @param chars Array of unicode characters to be encoded as UTF-8

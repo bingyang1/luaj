@@ -115,7 +115,7 @@ public class CoerceJavaToLua {
 
 	private static final class InstanceCoercion implements Coercion {
 		public LuaValue coerce(Object javaValue) {
-			return JavaInstance.forCache(javaValue);
+			return new JavaInstance(javaValue);
 		}
 	}
 
@@ -152,7 +152,7 @@ public class CoerceJavaToLua {
 		COERCIONS.put( Float.class, doubleCoercion );
 		COERCIONS.put( Double.class, doubleCoercion );
 		COERCIONS.put( String.class, stringCoercion );
-		COERCIONS.put( byte[].class, bytesCoercion );
+		//COERCIONS.put( byte[].class, bytesCoercion );
 		COERCIONS.put( Class.class, classCoercion );
 	}
 

@@ -22,25 +22,18 @@
 package org.luaj.vm2.lib.jse;
 
 
-import android.media.MediaScannerConnection;
-import android.util.Log;
-
-import com.android.cglib.proxy.EnhancerInterface;
-import com.android.cglib.proxy.MethodFilter;
-
 import java.lang.reflect.Array;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Member;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.LuaError;
 import org.luaj.vm2.LuaTable;
@@ -51,7 +44,6 @@ import org.luaj.vm2.compiler.LuaC;
 import org.luaj.vm2.lib.LibFunction;
 import org.luaj.vm2.lib.OneArgFunction;
 import org.luaj.vm2.lib.VarArgFunction;
-
 
 /**
  * Subclass of {@link LibFunction} which implements the features of the luajava package.
@@ -116,7 +108,7 @@ public class LuajavaLib extends VarArgFunction {
             "astable",
     };
 
-    static final int METHOD_MODIFIERS_VARARGS = 0x80;
+    static final int METHOD_MODIFIERS_VARARGS = Modifier.TRANSIENT;//0x80;
 
     public LuajavaLib() {
     }
@@ -260,27 +252,6 @@ public class LuajavaLib extends VarArgFunction {
                 Map.Entry entry = (Map.Entry) o;
                 tab.set(CoerceJavaToLua.coerce(entry.getKey()), asTable(entry.getValue()));
             }
-        } else if (obj instanceof JSONObject) {
-            JSONObject map = (JSONObject) obj;
-            Iterator<String> keys = map.keys();
-            while (keys.hasNext()) {
-                String k = keys.next();
-                try {
-                    tab.set(k, asTable(map.get(k)));
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-            }
-        } else if (obj instanceof JSONArray) {
-            JSONArray map = (JSONArray) obj;
-            int len = map.length();
-            for (int i = 0; i < len; i++) {
-                try {
-                    tab.set(i, asTable(map.get(i)));
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
-            }
         } else {
             return CoerceJavaToLua.coerce(obj);
         }
@@ -306,7 +277,7 @@ public class LuajavaLib extends VarArgFunction {
     }
 
     public static JavaClass bindClassForName(String name) throws ClassNotFoundException {
-        return JavaClass.forClass(Class.forName(name, true, LuaApplication.getInstance().getClassLoader()));
+        return JavaClass.forClass(Class.forName(name, true, name.getClass().getClassLoader()));
     }
 
     private static final class ProxyInvocationHandler implements InvocationHandler {
@@ -326,6 +297,7 @@ public class LuajavaLib extends VarArgFunction {
 
             if (func.isnil())
                 return null;
+
             boolean isvarargs = ((method.getModifiers() & METHOD_MODIFIERS_VARARGS) != 0);
             int n = args != null ? args.length : 0;
             LuaValue[] v;
@@ -339,11 +311,16 @@ public class LuajavaLib extends VarArgFunction {
                     v[i + n] = CoerceJavaToLua.coerce(Array.get(o, i));
             } else {
                 v = new LuaValue[n];
-                for (int i = 0; i < n; i++)
+                for (int i = 0; i < n; i++){
                     v[i] = CoerceJavaToLua.coerce(args[i]);
+                }
             }
-            LuaValue result = func.invoke(v).arg1();
-            return CoerceLuaToJava.coerce(result, method.getReturnType());
+            try {
+                LuaValue result = func.invoke(v).arg1();
+                return CoerceLuaToJava.coerce(result, method.getReturnType());
+            }catch (Exception e){
+                return CoerceLuaToJava.coerce(LuaValue.NIL, method.getReturnType());
+            }
         }
     }
 

@@ -94,13 +94,15 @@ public class LuaClosure extends LuaFunction {
 	public UpValue[] upValues;
 	
 	final Globals globals;
-	private final static int checkglobal=1;
-	private final static int checklocal =2;
-	private final static int checktable =4;
+
+
+	public LuaClosure(Prototype p, Globals globals) {
+		this(p,globals,globals);
+	}
 
 	/** Create a closure around a Prototype with a specific environment.
 	 * If the prototype has upvalues, the environment will be written into the first upvalue.
-	 * @param p the Prototype to construct this Closure for. 
+	 * @param p the Prototype to construct this Closure for.
 	 * @param env the environment to associate with the closure.
 	 */
 	public LuaClosure(Prototype p, Globals globals, LuaValue env) {
@@ -188,6 +190,7 @@ public class LuaClosure extends LuaFunction {
 	}
 	
 	protected Varargs execute( LuaValue[] stack, Varargs varargs ) {
+		long[] idxs=new long[stack.length];
 		// loop through instructions
 		int i,a,b,c,pc=0,top=0;
 		LuaValue o;
@@ -204,8 +207,6 @@ public class LuaClosure extends LuaFunction {
 		ArrayList<LuaValue> deferList=new ArrayList<>();
 		// process instructions
 		try {
-			LuaValue v1,v2,k1;
-			boolean isg = false;
 			for (; true; ++pc) {
 				if (globals != null && globals.debuglib != null)
 					globals.debuglib.onInstruction( pc, v, top ); 
@@ -253,16 +254,7 @@ public class LuaClosure extends LuaFunction {
 						stack[a] = getfenv().get(k[i>>>14]);
 						continue;
 					case Lua.OP_SETGLOBAL: /*	A Bx	Gbl[Kst(Bx)]:= R(A)				*/
-						if((globals.checkType & checkglobal)==0){
-						    getfenv().set(k[i>>>14], stack[a]);
-						    continue;
-						}
-						k1 = k[i>>>14];
-						v1 = getfenv().get(k1);
-						v2 = stack[a];
-						if(v1!=null&&v2!=null&&v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
-							throw new LuaError(String.format("attempt to set (global '%s') value type error (%s expected, got %s)",k1.tojstring(),v1.typename(),v2.typename()));
-						getfenv().set(k1,v2);
+						getfenv().set(k[i>>>14], stack[a]);
 						continue;
 
 				case Lua.OP_GETUPVAL: /*	A B	R(A):= UpValue[B]				*/
@@ -278,55 +270,15 @@ public class LuaClosure extends LuaFunction {
 					continue;
 					
 				case Lua.OP_SETTABUP: /*	A B C	UpValue[A][RK(B)] := RK(C)	*/
-					if((globals.checkType & checkglobal)!=0)
-						isg = upValues[a].getValue().eq_b(globals);
-					if(((globals.checkType & checkglobal)==0&&isg)||((globals.checkType & checktable)==0&&!isg)){
-						upValues[a].getValue().set(((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]), (c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c]);
-						continue;
-					}
-	                k1=((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]);
-					v1=upValues[a].getValue().get(k1);
-					v2=(c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c];
-					if(v1!=null&&v2!=null&&v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type()){
-						if(isg)
-						    throw new LuaError(String.format("attempt to set (global '%s') value type error (%s expected, got %s)", k1.tojstring(), v1.typename(), v2.typename()));
-						else
-							throw new LuaError(String.format("attempt to set (uptable %s[%s]) value type error (%s expected, got %s)", p.upvalues[a].name, k1.tojstring(), v1.typename(), v2.typename()));
-					}
-					upValues[a].getValue().set(k1,v2);
+					upValues[a].getValue().set(((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]), (c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c]);
 					continue;
 					
 				case Lua.OP_SETUPVAL: /*	A B	UpValue[B]:= R(A)				*/
-					if((globals.checkType&checkglobal)==0){
-						upValues[i>>>23].setValue(stack[a]);
-						continue;
-					}
-					v1 = upValues[i>>>23].getValue();
-					v2 = stack[a];
-					if(v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type())
-						throw new LuaError(String.format("attempt to set (upvalue '%s') value type error (%s expected, got %s)", p.upvalues[i>>>23].name, v1.typename(), v2.typename()));
-					upValues[i>>>23].setValue(v2);
+					upValues[i>>>23].setValue(stack[a]);
 					continue;
 					
 				case Lua.OP_SETTABLE: /*	A B C	R(A)[RK(B)]:= RK(C)				*/
-					if((globals.checkType & checkglobal)!=0)
-					isg=stack[a].eq_b(globals);
-					if(((globals.checkType & checkglobal)==0&&isg)||((globals.checkType & checktable)==0&&!isg)){
-						stack[a].set(((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]), (c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c]);
-						continue;
-					}
-					k1=((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]);
-					v1 = stack[a].get(k1);
-					v2 = (c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c];
-					if(v1.type()!=LuaValue.TNIL&&v2.type()!=LuaValue.TNIL&&v1.type()!=v2.type()){
-						if(isg)
-							throw new LuaError(String.format("attempt to set (global '%s') value type error (%s expected, got %s)", k1.tojstring(), v1.typename(), v2.typename()));
-						else if(a<p.locvars.length)
-							throw new LuaError(String.format("attempt to set (loctable %s[%s]) value type error (%s expected, got %s)", p.locvars[a].varname, k1.tojstring(), v1.typename(), v2.typename()));
-                        else
-						    throw new LuaError(String.format("attempt to set (table field '%s') value type error (%s expected, got %s)", k1.tojstring(), v1.typename(), v2.typename()));
-					}
-					stack[a].set(k1,v2);
+					stack[a].set(((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]), (c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c]);
 					continue;
 					
 				case Lua.OP_NEWTABLE: /*	A B C	R(A):= {} (size = B,C)				*/
@@ -459,19 +411,19 @@ public class LuaClosure extends LuaFunction {
 					else
 						stack[a] = o; // TODO: should be sBx? 
 					continue;
+
 					case Lua.OP_TCALL:
 						b = i>>>23;
 						c = (i>>14)&0x1ff;
 						try{
 							stack[a].invoke();
 						}catch (Exception e){
-							if(b>0)
-							    stack[b].invoke(CoerceJavaToLua.coerce(e.getMessage()));
+							if(b>0) stack[b].invoke(CoerceJavaToLua.coerce(e.getMessage()));
 						} finally {
-							if(c>0)
-								stack[c].invoke();
+							if(c>0) stack[c].invoke();
 						}
 						continue;
+
 				case Lua.OP_CALL: /*	A B C	R(A), ... ,R(A+C-2):= R(A)(R(A+1), ... ,R(A+B-1)) */
 
 					switch ( i & (Lua.MASK_B | Lua.MASK_C) ) {
@@ -567,14 +519,22 @@ public class LuaClosure extends LuaFunction {
 					
 				case Lua.OP_FORLOOP: /*	A sBx	R(A)+=R(A+2): if R(A) <?= R(A+1) then { pc+=sBx: R(A+3)=R(A) }*/
 					{
-			            LuaValue limit = stack[a + 1];
+			            /*LuaValue limit = stack[a + 1];
 						LuaValue step  = stack[a + 2];
 						LuaValue idx   = stack[a].add(step);
 			            if (step.gt_b(0)? idx.lteq_b(limit): idx.gteq_b(limit)) {
 		                    stack[a] = idx;
 		                    stack[a + 3] = idx;
 		                    pc += (i>>>14)-0x1ffff;
-			            }
+			            }*/
+						long limit = idxs[a + 1];
+						long step  = idxs[a + 2];
+						long idx   = idxs[a]+(step);
+						if (step>(0)? idx<=(limit): idx>=(limit)) {
+							idxs[a] = idx;
+							stack[a + 3] = new LuaInteger(idx);
+							pc += (i>>>14)-0x1ffff;
+						}
 					}
 					continue;
 					
@@ -586,6 +546,9 @@ public class LuaClosure extends LuaFunction {
 						stack[a] = init.sub(step);
 						stack[a + 1] = limit;
 						stack[a + 2] = step;
+						idxs[a]=stack[a].tolong();
+						idxs[a+1]=limit.tolong();
+						idxs[a+2]=step.tolong();
 						pc += (i>>>14)-0x1ffff;
 					}
 					continue;
@@ -701,9 +664,9 @@ public class LuaClosure extends LuaFunction {
 	}
 
 	private void pop(LuaValue[] stack, int a, int i) {
-		for (int i1 = 0; i1 < i; i1++) {
+		/*for (int i1 = 0; i1 < i; i1++) {
 			stack[a+i1]=LuaValue.NIL;
-		}
+		}*/
 	}
 
 	/**

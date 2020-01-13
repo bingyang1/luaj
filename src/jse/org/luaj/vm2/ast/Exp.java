@@ -89,15 +89,11 @@ public class Exp extends SyntaxElement {
 		case Lua.OP_OR: return 0;
 		case Lua.OP_AND: return 1;
 		case Lua.OP_LT: case Lua.OP_GT: case Lua.OP_LE: case Lua.OP_GE: case Lua.OP_NEQ: case Lua.OP_EQ: return 2;
-		    case Lua.OP_BOR: return 3;
-			case Lua.OP_BXOR: return 4;
-			case Lua.OP_BAND: return 5;
-			case Lua.OP_SHL: case Lua.OP_SHR: return 6;
-		case Lua.OP_CONCAT: return 7;
-		case Lua.OP_ADD: case Lua.OP_SUB: return 8;
-		case Lua.OP_MUL: case Lua.OP_DIV: case Lua.OP_IDIV: case Lua.OP_MOD: return 9;
-		case Lua.OP_NOT: case Lua.OP_UNM: case Lua.OP_LEN: return 10;
-		case Lua.OP_POW: return 11;
+		case Lua.OP_CONCAT: return 3;
+		case Lua.OP_ADD: case Lua.OP_SUB: return 4;
+		case Lua.OP_MUL: case Lua.OP_DIV: case Lua.OP_MOD: return 5;
+		case Lua.OP_NOT: case Lua.OP_UNM: case Lua.OP_LEN: return 6;
+		case Lua.OP_POW: return 7;
 		default: throw new IllegalStateException("precedence of bad op "+op);
 		}
 	}	

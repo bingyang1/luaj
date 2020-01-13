@@ -75,6 +75,7 @@ public class LuaDouble extends LuaNumber {
 	final double v;
 
 	public static LuaNumber valueOf(double d) {
+		//return new LuaDouble(d);
 		long id = (long) d;
 		return d==id? (LuaNumber) LuaInteger.valueOf(id): (LuaNumber) new LuaDouble(d);
 	}
@@ -92,7 +93,14 @@ public class LuaDouble extends LuaNumber {
 	public boolean islong() {
 		return v == (long) v; 
 	}
-	
+	public boolean isinttype() {
+		return v == (int) v;
+	}
+
+	public boolean isint() {
+		return v == (int) v;
+	}
+
 	public byte    tobyte()        { return (byte) (long) v; }
 	public char    tochar()        { return (char) (long) v; }
 	public double  todouble()      { return v; }
@@ -100,6 +108,7 @@ public class LuaDouble extends LuaNumber {
 	public int     toint()         { return (int) (long) v; }
 	public long    tolong()        { return (long) v; }
 	public short   toshort()       { return (short) (long) v; }
+
 
 	public double      optdouble(double defval)        { return v; }
 	public int         optint(int defval)              { return (int) (long) v;  }

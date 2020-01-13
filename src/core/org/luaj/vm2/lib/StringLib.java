@@ -28,6 +28,7 @@ import org.luaj.vm2.Buffer;
 import org.luaj.vm2.LuaClosure;
 import org.luaj.vm2.LuaString;
 import org.luaj.vm2.LuaTable;
+import org.luaj.vm2.LuaUtf8String;
 import org.luaj.vm2.LuaValue;
 import org.luaj.vm2.Varargs;
 import org.luaj.vm2.compiler.DumpState;
@@ -89,6 +90,7 @@ public class StringLib extends TwoArgFunction {
 		string.set("find", new find());
 		string.set("format", new format());
 		string.set("gmatch", new gmatch());
+		string.set("gfind", new gfind());
 		string.set("gsub", new gsub());
 		string.set("len", new len());
 		string.set("lower", new lower());
@@ -97,7 +99,8 @@ public class StringLib extends TwoArgFunction {
 		string.set("reverse", new reverse());
 		string.set("sub", new sub());
 		string.set("upper", new upper());
-		
+		string.set("toutf8", new toutf8());
+
 		env.set("string", string);
 		if (!env.get("package").isnil()) env.get("package").get("loaded").set("string", string);
 		if (LuaString.s_metatable == null) {
@@ -519,20 +522,30 @@ public class StringLib extends TwoArgFunction {
 		public Varargs invoke(Varargs args) {
 			LuaString src = args.checkstring( 1 );
 			LuaString pat = args.checkstring( 2 );
-			return new GMatchAux(args, src, pat);
+			return new GMatchAux(args, src, pat, false);
+		}
+	}
+
+	static final class gfind extends VarArgFunction {
+		public Varargs invoke(Varargs args) {
+			LuaString src = args.checkstring( 1 );
+			LuaString pat = args.checkstring( 2 );
+			return new GMatchAux(args, src, pat, true);
 		}
 	}
 
 	static class GMatchAux extends VarArgFunction {
 		private final int srclen;
 		private final MatchState ms;
+		private final boolean find;
 		private int soffset;
 		private int lastmatch;
-		public GMatchAux(Varargs args, LuaString src, LuaString pat) {
+		public GMatchAux(Varargs args, LuaString src, LuaString pat,boolean find) {
 			this.srclen = src.length();
 			this.ms = new MatchState(args, src, pat);
 			this.soffset = 0;
 			this.lastmatch = -1;
+			this.find=find;
 		}
 		public Varargs invoke(Varargs args) {
 			for ( ; soffset<=srclen; soffset++ ) {
@@ -541,7 +554,10 @@ public class StringLib extends TwoArgFunction {
 				if ( res >=0 && res != lastmatch ) {
 					int soff = soffset;
 					lastmatch = soffset = res;
-					return ms.push_captures( true, soff, res );
+					if(find)
+						return varargsOf(valueOf(soff+1), valueOf(res), ms.push_captures( false, soff, res ));
+					else
+					    return ms.push_captures( true, soff, res );
 				}
 			}
 			return NIL;
@@ -745,7 +761,12 @@ public class StringLib extends TwoArgFunction {
 			return valueOf(arg.checkjstring().toUpperCase());
 		}
 	}
-	
+	static final class toutf8 extends OneArgFunction {
+		public LuaValue call(LuaValue arg) {
+			return LuaUtf8String.valueOfString(arg.tojstring());
+		}
+	}
+
 	/**
 	 * This utility method implements both string.find and string.match.
 	 */

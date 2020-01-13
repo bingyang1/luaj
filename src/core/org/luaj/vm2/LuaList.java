@@ -1,7 +1,5 @@
 package org.luaj.vm2;
 
-import android.util.Log;
-
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Vector;
@@ -164,6 +162,8 @@ public class LuaList extends LuaTable implements Metatable {
 
 
     public void set(int key, LuaValue value) {
+        if(mConst)
+            throw new LuaError("can not be set a const table");
         if (m_metatable == null || !rawget(key).isnil() || !settable(this, LuaInteger.valueOf(key), value))
             rawset(key, value);
     }
@@ -172,6 +172,8 @@ public class LuaList extends LuaTable implements Metatable {
      * caller must ensure key is not nil
      */
     public void set(LuaValue key, LuaValue value) {
+        if(mConst)
+            throw new LuaError("can not be set a const table");
         if (!key.isvalidkey() && !metatag(NEWINDEX).isfunction())
             typerror("table index");
         if (m_metatable == null || !rawget(key).isnil() || !settable(this, key, value))
@@ -179,6 +181,8 @@ public class LuaList extends LuaTable implements Metatable {
     }
 
     public void rawset(int key, LuaValue value) {
+        if(mConst)
+            throw new LuaError("can not be set a const table");
         arrayset(key, value);
     }
 
@@ -186,6 +190,8 @@ public class LuaList extends LuaTable implements Metatable {
      * caller must ensure key is not nil
      */
     public void rawset(LuaValue key, LuaValue value) {
+        if(mConst)
+            throw new LuaError("can not be set a const table");
         if(key.eq_b(N)){
             fullList(value.checkint());
             return;

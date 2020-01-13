@@ -844,33 +844,33 @@ public class FuncState extends Constants {
 	void codenot(expdesc e) {
 		this.dischargevars(e);
 		switch (e.k) {
-		case LexState.VNIL:
-		case LexState.VFALSE: {
-			e.k = LexState.VTRUE;
-			break;
-		}
-		case LexState.VK:
-		case LexState.VKNUM:
-		case LexState.VTRUE: {
-			e.k = LexState.VFALSE;
-			break;
-		}
-		case LexState.VJMP: {
-			this.invertjump(e);
-			break;
-		}
-		case LexState.VRELOCABLE:
-		case LexState.VNONRELOC: {
-			this.discharge2anyreg(e);
-			this.freeexp(e);
-			e.u.info = this.codeABC(OP_NOT, 0, e.u.info, 0);
-			e.k = LexState.VRELOCABLE;
-			break;
-		}
-		default: {
-			_assert (false); /* cannot happen */
-			break;
-		}
+			case LexState.VNIL:
+			case LexState.VFALSE: {
+				e.k = LexState.VTRUE;
+				break;
+			}
+			case LexState.VK:
+			case LexState.VKNUM:
+			case LexState.VTRUE: {
+				e.k = LexState.VFALSE;
+				break;
+			}
+			case LexState.VJMP: {
+				this.invertjump(e);
+				break;
+			}
+			case LexState.VRELOCABLE:
+			case LexState.VNONRELOC: {
+				this.discharge2anyreg(e);
+				this.freeexp(e);
+				e.u.info = this.codeABC(OP_NOT, 0, e.u.info, 0);
+				e.k = LexState.VRELOCABLE;
+				break;
+			}
+			default: {
+				_assert (false); /* cannot happen */
+				break;
+			}
 		}
 		/* interchange true and false lists */
 		{

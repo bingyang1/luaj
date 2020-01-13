@@ -21,10 +21,7 @@
  ******************************************************************************/
 package org.luaj.vm2.lib.jse;
 
-import org.luaj.vm2.Globals;
-import org.luaj.vm2.LoadState;
-import org.luaj.vm2.LuaThread;
-import org.luaj.vm2.LuaValue;
+import org.luaj.vm2.*;
 import org.luaj.vm2.compiler.LuaC;
 import org.luaj.vm2.lib.Bit32Lib;
 import org.luaj.vm2.lib.CoroutineLib;
@@ -33,6 +30,7 @@ import org.luaj.vm2.lib.PackageLib;
 import org.luaj.vm2.lib.ResourceFinder;
 import org.luaj.vm2.lib.StringLib;
 import org.luaj.vm2.lib.TableLib;
+import org.luaj.vm2.lib.Utf8Lib;
 
 /** The {@link org.luaj.vm2.lib.jse.JsePlatform} class is a convenience class to standardize 
  * how globals tables are initialized for the JSE platform. 
@@ -104,6 +102,7 @@ public class JsePlatform {
 		globals.load(new JseOsLib());
 		globals.load(new LuajavaLib());
 		globals.load(new DebugLib());
+		globals.load(new Utf8Lib());
 		LoadState.install(globals);
 		LuaC.install(globals);
 		return globals;		
@@ -128,7 +127,7 @@ public class JsePlatform {
 	 * The supplied function is first given a new Globals object, 
 	 * then the program is run with arguments.
 	 */
-	public static void luaMain(LuaValue mainChunk, String[] args) {
+	public static Varargs luaMain(LuaValue mainChunk, String[] args) {
 		Globals g = standardGlobals();
 		int n = args.length;
 		LuaValue[] vargs = new LuaValue[args.length];
@@ -138,6 +137,6 @@ public class JsePlatform {
 		arg.set("n", n);
 		g.set("arg", arg);
 		mainChunk.initupvalue1(g);
-		mainChunk.invoke(LuaValue.varargsOf(vargs));
+		return mainChunk.invoke(LuaValue.varargsOf(vargs));
 	}
 }
