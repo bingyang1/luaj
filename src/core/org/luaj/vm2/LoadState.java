@@ -45,7 +45,7 @@ import java.io.InputStream;
 * have been installed.
 * <p>
 * By default, when using {@link org.luaj.vm2.lib.jse.JsePlatform} or 
-* {@link org.luaj.vm2.lib.jme.JmePlatform}
+
 * to construct globals, the {@link LoadState} default undumper is installed
 * as the default {@link Globals.Undumper}. 
 * <p>

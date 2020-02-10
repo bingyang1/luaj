@@ -105,6 +105,11 @@ public class Constants extends Lua {
 				((bc << POS_Bx) & MASK_Bx) ;
  	}
 
+	static int CREATE_Ax(int o, int abc) {
+		return ((o << POS_OP) & MASK_OP) |
+				((abc << POS_Ax) & MASK_Ax) ;
+	}
+
 	// vector reallocation
 	
 	static LuaValue[] realloc(LuaValue[] v, int n) {

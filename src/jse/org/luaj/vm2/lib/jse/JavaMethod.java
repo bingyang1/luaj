@@ -125,6 +125,7 @@ class JavaMethod extends JavaMember {
         } catch (InvocationTargetException e) {
             throw new LuaError(e.getTargetException());
         } catch (Exception e) {
+            e.printStackTrace();
             return LuaValue.error("coercion error " + e);
         }
     }

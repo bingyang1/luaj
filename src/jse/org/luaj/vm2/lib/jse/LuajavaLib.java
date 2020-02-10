@@ -34,6 +34,9 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.luaj.vm2.Globals;
 import org.luaj.vm2.LuaError;
 import org.luaj.vm2.LuaTable;
@@ -229,11 +232,34 @@ public class LuajavaLib extends VarArgFunction {
                 Map.Entry entry = (Map.Entry) o;
                 tab.set(CoerceJavaToLua.coerce(entry.getKey()), CoerceJavaToLua.coerce(entry.getValue()));
             }
+        } else if (obj instanceof JSONObject) {
+            JSONObject map = (JSONObject) obj;
+            Iterator<String> keys = map.keys();
+            while (keys.hasNext()) {
+                String k = keys.next();
+                try {
+                    tab.set(k, CoerceJavaToLua.coerce(map.get(k)));
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else if (obj instanceof JSONArray) {
+            JSONArray map = (JSONArray) obj;
+            int len = map.length();
+            for (int i = 0; i < len; i++) {
+                try {
+                    tab.set(i, CoerceJavaToLua.coerce(map.get(i)));
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            return CoerceJavaToLua.coerce(obj);
         }
         return tab;
     }
 
-    private static LuaValue asTable(Object obj) {
+    public static LuaValue asTable(Object obj) {
         LuaTable tab = new LuaTable();
         if (obj.getClass().isArray()) {
             int n = Array.getLength(obj);
@@ -251,6 +277,27 @@ public class LuajavaLib extends VarArgFunction {
             for (Object o : map.entrySet()) {
                 Map.Entry entry = (Map.Entry) o;
                 tab.set(CoerceJavaToLua.coerce(entry.getKey()), asTable(entry.getValue()));
+            }
+        } else if (obj instanceof JSONObject) {
+            JSONObject map = (JSONObject) obj;
+            Iterator<String> keys = map.keys();
+            while (keys.hasNext()) {
+                String k = keys.next();
+                try {
+                    tab.set(k, asTable(map.get(k)));
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        } else if (obj instanceof JSONArray) {
+            JSONArray map = (JSONArray) obj;
+            int len = map.length();
+            for (int i = 0; i < len; i++) {
+                try {
+                    tab.set(i, asTable(map.get(i)));
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
             }
         } else {
             return CoerceJavaToLua.coerce(obj);
@@ -273,11 +320,11 @@ public class LuajavaLib extends VarArgFunction {
 
     // load classes using app loader to allow luaj to be used as an extension
     protected Class<?> classForName(String name) throws ClassNotFoundException {
-        return Class.forName(name, true, getClass().getClassLoader());
+        return Class.forName(name);
     }
 
     public static JavaClass bindClassForName(String name) throws ClassNotFoundException {
-        return JavaClass.forClass(Class.forName(name, true, name.getClass().getClassLoader()));
+        return JavaClass.forClass(Class.forName(name));
     }
 
     private static final class ProxyInvocationHandler implements InvocationHandler {

@@ -87,8 +87,13 @@
   
   <!-- Project Libraries -->
   
-  <path id="library.bcel-5.1.classpath">
-    <pathelement location="${basedir}/../luaj/lib/bcel-5.1.jar"/>
+  <path id="library.ant:ant-apache-bcel:1.6.5.classpath">
+    <pathelement location="${basedir}/lib/ant-apache-bcel-1.6.5.jar"/>
+  </path>
+  
+  <path id="library.bcel:bcel:5.1.classpath">
+    <pathelement location="${basedir}/lib/bcel-5.1.jar"/>
+    <pathelement location="${basedir}/lib/regexp-1.2.jar"/>
   </path>
   <!-- Register Custom Compiler Taskdefs -->
   <property name="javac2.home" value="${idea.home}/lib"/>

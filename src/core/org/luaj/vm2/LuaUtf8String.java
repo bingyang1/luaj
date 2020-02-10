@@ -42,7 +42,7 @@ public class LuaUtf8String extends LuaValue {
      * because no LuaUtf8String whose backing exceeds this length will be put into the cache.
      * Exposed to package for testing. */
     static final int RECENT_STRINGS_MAX_LENGTH = 32;
-    private boolean isHahcode;
+    private boolean isHascode;
     private String m_string;
 
     /**
@@ -103,7 +103,7 @@ public class LuaUtf8String extends LuaValue {
      * @return {@link LuaUtf8String} wrapping a copy of the byte buffer
      */
     public static LuaUtf8String valueOf(char[] bytes, int off, int len) {
-        return valueUsing(bytes, 0, len);
+        return valueUsing(bytes, off, len);
     }
 
 
@@ -348,9 +348,10 @@ public class LuaUtf8String extends LuaValue {
     }
 
     public int hashCode() {
-        if(isHahcode)
+        if(isHascode)
         return m_hashcode;
         m_hashcode=hashCode(m_bytes,m_offset,m_length);
+        isHascode =true;
         return m_hashcode;
     }
 

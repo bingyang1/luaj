@@ -543,7 +543,7 @@ public class LuaTable extends LuaValue implements Metatable {
                 }
             }
             if (checkLoadFactor()) {
-                if (key.isinttype() && key.toint() > 0) {
+                if ((m_metatable==null||!(m_metatable.useWeakValues()))&&key.isinttype() && key.toint() > 0) {
                     // a rehash might make room in the array portion for this key.
                     rehash(key.toint());
                     if (arrayset(key.toint(), value))
@@ -1035,6 +1035,10 @@ public class LuaTable extends LuaValue implements Metatable {
                     throw new LuaError("too many results to unpack [out of memory]: " + n);
                 }
         }
+    }
+
+    public LuaValue size() {
+        return len().add(getHashLength());
     }
 
 	/*public void clear() {

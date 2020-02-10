@@ -589,7 +589,7 @@ public class LexState extends Constants {
 				break;
 			}
 			default: {
-				save_and_next();
+					save_and_next();
 			}
 			}
 		}

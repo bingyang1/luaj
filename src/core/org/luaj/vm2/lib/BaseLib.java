@@ -50,7 +50,7 @@ import org.luaj.vm2.Varargs;
  * <p>
  * Typically, this library is included as part of a call to either
  * {@link org.luaj.vm2.lib.jse.JsePlatform#standardGlobals()} or
- * {@link org.luaj.vm2.lib.jme.JmePlatform#standardGlobals()}
+
  * <pre> {@code
  * Globals globals = JsePlatform.standardGlobals();
  * globals.get("print").call(LuaValue.valueOf("hello, world"));
@@ -73,7 +73,7 @@ import org.luaj.vm2.Varargs;
  * @see Globals#finder
  * @see LibFunction
  * @see org.luaj.vm2.lib.jse.JsePlatform
- * @see org.luaj.vm2.lib.jme.JmePlatform
+
  * @see <a href="http://www.lua.org/manual/5.2/manual.html#6.1">Lua 5.2 Base Lib Reference</a>
  */
 public class BaseLib extends TwoArgFunction implements ResourceFinder {
@@ -487,6 +487,7 @@ public class BaseLib extends TwoArgFunction implements ResourceFinder {
 				return varargsOf(NIL, valueOf("not found: "+chunkname));
 			return globals.load(is, chunkname, mode, env);
 		} catch (Exception e) {
+			//e.printStackTrace();
 			return varargsOf(NIL, valueOf(e.getMessage()));
 		}
 	}

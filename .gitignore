@@ -7,10 +7,11 @@ jit/
 *.ser
 *.gz
 *.jar
-*.lua
 *.out
 *.tar
 *.txt
 *.zip
 docs
 *.0
+*.bin
+*.lock

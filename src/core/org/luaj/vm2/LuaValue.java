@@ -79,7 +79,7 @@ import org.luaj.vm2.lib.jse.CoerceLuaToJava;
  * } </pre>
  * For this to work the file must be in the current directory, or in the class path, 
  * dependening on the platform.  
- * See {@link org.luaj.vm2.lib.jse.JsePlatform} and {@link org.luaj.vm2.lib.jme.JmePlatform} for details. 
+
  * <p>
  * In general a {@link LuaError} may be thrown on any operation when the  
  * types supplied to any operation are illegal from a lua perspective. 
@@ -106,7 +106,7 @@ import org.luaj.vm2.lib.jse.CoerceLuaToJava;
  * {@link #LE}, {@link #TOSTRING}, and {@link #CONCAT}.
  * 
  * @see org.luaj.vm2.lib.jse.JsePlatform
- * @see org.luaj.vm2.lib.jme.JmePlatform
+
  * @see LoadState 
  * @see Varargs
  */

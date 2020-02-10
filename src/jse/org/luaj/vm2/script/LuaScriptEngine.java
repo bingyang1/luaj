@@ -161,7 +161,7 @@ public class LuaScriptEngine extends AbstractScriptEngine implements ScriptEngin
 	    	g.setmetatable(new BindingsMetatable(b));
 			LuaFunction f = function;
 			if (f.isclosure())
-				f = new LuaClosure(f.checkclosure().p, g);
+				f = new LuaClosure(f.checkclosure().p, g, g);
 			else {
 				try {
 					f = f.getClass().newInstance();

@@ -25,6 +25,7 @@ import org.luaj.vm2.lib.DebugLib;
 import org.luaj.vm2.lib.jse.CoerceJavaToLua;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * Extension of {@link LuaFunction} which executes lua bytecode. 
@@ -37,7 +38,7 @@ import java.util.ArrayList;
  * <p>
  * There are three main ways {@link LuaClosure} instances are created:
  * <ul> 
- * <li>Construct an instance using {@link #LuaClosure(Prototype, LuaValue)}</li>
+ * <li>Construct an instance using {@link #LuaClosure(Prototype, Globals, LuaValue)}</li>
  * <li>Construct it indirectly by loading a chunk via {@link Globals#load(java.io.Reader, String)}
  * <li>Execute the lua bytecode {@link Lua#OP_CLOSURE} as part of bytecode processing
  * </ul>
@@ -95,14 +96,9 @@ public class LuaClosure extends LuaFunction {
 	
 	final Globals globals;
 
-
-	public LuaClosure(Prototype p, Globals globals) {
-		this(p,globals,globals);
-	}
-
 	/** Create a closure around a Prototype with a specific environment.
 	 * If the prototype has upvalues, the environment will be written into the first upvalue.
-	 * @param p the Prototype to construct this Closure for.
+	 * @param p the Prototype to construct this Closure for. 
 	 * @param env the environment to associate with the closure.
 	 */
 	public LuaClosure(Prototype p, Globals globals, LuaValue env) {
@@ -190,7 +186,6 @@ public class LuaClosure extends LuaFunction {
 	}
 	
 	protected Varargs execute( LuaValue[] stack, Varargs varargs ) {
-		long[] idxs=new long[stack.length];
 		// loop through instructions
 		int i,a,b,c,pc=0,top=0;
 		LuaValue o;
@@ -200,7 +195,6 @@ public class LuaClosure extends LuaFunction {
 		// upvalues are only possible when closures create closures
 		// TODO: use linked list.
 		UpValue[] openups = p.p.length>0? new UpValue[stack.length]: null;
-		
 		// allow for debug hooks
 		if (globals != null && globals.debuglib != null)
 			globals.debuglib.onCall( this, varargs, stack );
@@ -224,6 +218,12 @@ public class LuaClosure extends LuaFunction {
 					
 				case Lua.OP_LOADK:/*	A Bx	R(A):= Kst(Bx)					*/
 					stack[a] = k[i>>>14];
+					continue;
+
+				case Lua.OP_LOADKX:/*	A Bx	R(A):= Kst(Bx)					*/
+					++pc;
+					i = code[pc];
+					stack[a] = k[i>>>6];
 					continue;
 
 				case Lua.OP_LOADBOOL:/*	A B C	R(A):= (Bool)B: if (C) pc++			*/
@@ -278,7 +278,9 @@ public class LuaClosure extends LuaFunction {
 					continue;
 					
 				case Lua.OP_SETTABLE: /*	A B C	R(A)[RK(B)]:= RK(C)				*/
-					stack[a].set(((b=i>>>23)>0xff? k[b&0x0ff]: stack[b]), (c=(i>>14)&0x1ff)>0xff? k[c&0x0ff]: stack[c]);
+					LuaValue key = ((b = i >>> 23) > 0xff ? k[b & 0x0ff] : stack[b]);
+					LuaValue value = (c = (i >> 14) & 0x1ff) > 0xff ? k[c & 0x0ff] : stack[c];
+					stack[a].set(key, value);
 					continue;
 					
 				case Lua.OP_NEWTABLE: /*	A B C	R(A):= {} (size = B,C)				*/
@@ -519,22 +521,14 @@ public class LuaClosure extends LuaFunction {
 					
 				case Lua.OP_FORLOOP: /*	A sBx	R(A)+=R(A+2): if R(A) <?= R(A+1) then { pc+=sBx: R(A+3)=R(A) }*/
 					{
-			            /*LuaValue limit = stack[a + 1];
+			            LuaValue limit = stack[a + 1];
 						LuaValue step  = stack[a + 2];
 						LuaValue idx   = stack[a].add(step);
 			            if (step.gt_b(0)? idx.lteq_b(limit): idx.gteq_b(limit)) {
 		                    stack[a] = idx;
 		                    stack[a + 3] = idx;
 		                    pc += (i>>>14)-0x1ffff;
-			            }*/
-						long limit = idxs[a + 1];
-						long step  = idxs[a + 2];
-						long idx   = idxs[a]+(step);
-						if (step>(0)? idx<=(limit): idx>=(limit)) {
-							idxs[a] = idx;
-							stack[a + 3] = new LuaInteger(idx);
-							pc += (i>>>14)-0x1ffff;
-						}
+			            }
 					}
 					continue;
 					
@@ -546,9 +540,6 @@ public class LuaClosure extends LuaFunction {
 						stack[a] = init.sub(step);
 						stack[a + 1] = limit;
 						stack[a + 2] = step;
-						idxs[a]=stack[a].tolong();
-						idxs[a+1]=limit.tolong();
-						idxs[a+2]=step.tolong();
 						pc += (i>>>14)-0x1ffff;
 					}
 					continue;

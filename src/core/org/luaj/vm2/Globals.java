@@ -39,7 +39,7 @@ import org.luaj.vm2.lib.ResourceFinder;
  * <h3>Constructing and Initializing Instances</h3>
  * Typically, this is constructed indirectly by a call to 
  * {@link org.luaj.vm2.lib.jse.JsePlatform#standardGlobals()} or 
- * {@link org.luaj.vm2.lib.jme.JmePlatform#standardGlobals()}, 
+
  * and then used to load lua scripts for execution as in the following example. 
  * <pre> {@code
  * Globals globals = JsePlatform.standardGlobals();
@@ -89,7 +89,7 @@ import org.luaj.vm2.lib.ResourceFinder;
  * </ul>
  * 
  * <h3>Lua Environment Variables</h3>
- * When using {@link org.luaj.vm2.lib.jse.JsePlatform} or {@link org.luaj.vm2.lib.jme.JmePlatform}, 
+
  * these environment variables are created within the Globals.
  * <ul>
  * <li>"_G" Pointer to this Globals.
@@ -103,7 +103,7 @@ import org.luaj.vm2.lib.ResourceFinder;
  * <p>
  * 
  * @see org.luaj.vm2.lib.jse.JsePlatform
- * @see org.luaj.vm2.lib.jme.JmePlatform
+
  * @see LuaValue
  * @see Compiler
  * @see Loader

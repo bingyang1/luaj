@@ -31,7 +31,7 @@ import org.luaj.vm2.Varargs;
  * 
  * <p>
  * Typically, this library is included as part of a call to either
- * {@link org.luaj.vm2.lib.jse.JsePlatform#standardGlobals()} or {@link org.luaj.vm2.lib.jme.JmePlatform#standardGlobals()}
+
  * <pre> {@code
  * Globals globals = JsePlatform.standardGlobals();
  * System.out.println( globals.get("table").get("length").call( LuaValue.tableOf() ) );
@@ -50,7 +50,7 @@ import org.luaj.vm2.Varargs;
  * This has been implemented to match as closely as possible the behavior in the corresponding library in C.
  * @see LibFunction
  * @see org.luaj.vm2.lib.jse.JsePlatform
- * @see org.luaj.vm2.lib.jme.JmePlatform
+
  * @see <a href="http://www.lua.org/manual/5.2/manual.html#6.5">Lua 5.2 Table Lib Reference</a>
  */
 public class TableLib extends TwoArgFunction {
@@ -70,6 +70,7 @@ public class TableLib extends TwoArgFunction {
 		table.set("sort", new sort());
 		table.set("clone", new clone());
 		table.set("clear", new clear());
+		table.set("size", new size());
 		table.set("find", new find());
 		table.set("const", new _const());
 		table.set("unpack", new unpack());
@@ -149,16 +150,23 @@ public class TableLib extends TwoArgFunction {
 		}
 	}
 
-	static class clone extends VarArgFunction {
-		public Varargs invoke(Varargs args) {
-			return args.checktable(1).clone();
+	static class clone extends OneArgFunction {
+		public LuaValue call(LuaValue arg) {
+			return arg.checktable().clone();
 		}
 	}
 
-	static class clear extends VarArgFunction {
-		public Varargs invoke(Varargs args) {
-			args.checktable(1).clear();
+	static class clear extends OneArgFunction {
+		public LuaValue call(LuaValue arg) {
+			arg.checktable().clear();
 			return NONE;
+		}
+	}
+
+	static class size extends OneArgFunction {
+		@Override
+		public LuaValue call(LuaValue arg) {
+			return arg.checktable().size();
 		}
 	}
 
@@ -168,9 +176,9 @@ public class TableLib extends TwoArgFunction {
 		}
 	}
 
-	static class _const extends VarArgFunction {
-		public Varargs invoke(Varargs args) {
-			args.checktable(1)._const();
+	static class _const extends OneArgFunction {
+		public LuaValue call(LuaValue arg) {
+			arg.checktable()._const();
 			return NONE;
 		}
 	}

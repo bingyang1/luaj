@@ -93,8 +93,11 @@ class JavaClass extends JavaInstance implements CoerceJavaToLua.Coercion {
 
     @Override
     public LuaValue call(LuaValue arg) {
+         Class obj = (Class) touserdata();
+        if(obj.isPrimitive()){
+            return CoerceJavaToLua.coerce(CoerceLuaToJava.coerce(arg,obj));
+        }
         if(arg.istable()){
-            Class obj = (Class) touserdata();
             if (obj.isInterface())
                 return LuajavaLib.createProxy(obj, arg);
             if(Map.class.isAssignableFrom(obj))
@@ -122,9 +125,12 @@ class JavaClass extends JavaInstance implements CoerceJavaToLua.Coercion {
     @Override
     public Varargs invoke(Varargs args) {
         if(args.narg()==1){
+            Class obj = (Class) touserdata();
             LuaValue arg = args.arg1();
+            if(obj.isPrimitive()){
+                return CoerceJavaToLua.coerce(CoerceLuaToJava.coerce(arg,obj));
+            }
             if(arg.istable()){
-                Class obj = (Class) touserdata();
                 if (obj.isInterface())
                     return LuajavaLib.createProxy(obj, arg);
                 if(Map.class.isAssignableFrom(obj))

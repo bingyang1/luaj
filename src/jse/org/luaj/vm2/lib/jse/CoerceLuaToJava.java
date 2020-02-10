@@ -291,7 +291,7 @@ public class CoerceLuaToJava {
 		final Coercion componentCoercion;
 		public ListCoercion(Class componentType) {
 			this.componentType = componentType;
-			this.componentCoercion = new ObjectCoercion(componentType);
+			this.componentCoercion = new ObjectCoercion(Object.class);
 		}
 		public String toString() {
 			return "ListCoercion("+componentType.getName()+")";
@@ -345,7 +345,7 @@ public class CoerceLuaToJava {
 		final Coercion componentCoercion;
 		public MapCoercion(Class componentType) {
 			this.componentType = componentType;
-			this.componentCoercion = new ObjectCoercion(componentType);
+			this.componentCoercion = new ObjectCoercion(Object.class);
 		}
 		public String toString() {
 			return "MapCoercion("+componentType.getName()+")";

@@ -65,11 +65,10 @@ end
 local imageio = luajava.bindClass("javax.imageio.ImageIO")
 local file = luajava.bindClass("java.io.File")
 local loadimage = function(path)
-	local s,i = pcall(imageio.read, luajava.new(file, path))
-	print(i)
+	local s,i = pcall(imageio.read, imageio, luajava.new(file, path))
 	return s and i
 end
-local logo = loadimage("logo.gif") or loadimage("examples/lua/ic_launcher.png")
+local logo = loadimage("logo.gif") or loadimage("examples/lua/logo.gif")
 
 -- the render step draws the scene
 local g = image.getGraphics()
@@ -124,7 +123,20 @@ frame.addWindowListener(luajava.createProxy("java.awt.event.WindowListener", {
 	-- windowDeiconified = function(e) end,
 	-- windowIconified = function(e) end,
 }))
-
+local path="demo.lua"
+local f,s=io.open(path)
+if f then
+	local s=f:read("*a")
+	f:close()
+	textArea.setText(s)
+end
+function save(s)
+	local f=io.open(path,"w")
+	if f then
+		local s=f:write(s)
+		f:close()
+	end
+end
 -- utility function to load an image from a file, for reference
 local loadimage = function(filename)
 end

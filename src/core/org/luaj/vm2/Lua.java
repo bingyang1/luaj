@@ -102,7 +102,8 @@ public class Lua {
 	public static final int MASK_A  = ((1<<SIZE_A)-1)<<POS_A; 
 	public static final int MASK_B  = ((1<<SIZE_B)-1)<<POS_B; 
 	public static final int MASK_C  = ((1<<SIZE_C)-1)<<POS_C; 
-	public static final int MASK_Bx = ((1<<SIZE_Bx)-1)<<POS_Bx; 
+	public static final int MASK_Bx = ((1<<SIZE_Bx)-1)<<POS_Bx;
+	public static final int MASK_Ax = ((1<<SIZE_Ax)-1)<<POS_Ax;
 
 	public static final int MASK_NOT_OP = ~MASK_OP; 
 	public static final int MASK_NOT_A  = ~MASK_A; 
