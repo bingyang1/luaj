@@ -87,19 +87,17 @@ public class LexState extends Constants {
 	/*
 	** grep "ORDER OPR" if you change these enums
 	*/
-	static final int 
-	  OPR_ADD=0, OPR_SUB=1, OPR_MUL=2, OPR_DIV=3, OPR_MOD=4, OPR_POW=5,
-	  OPR_CONCAT=6,
-	  OPR_NE=7, OPR_EQ=8,
-	  OPR_LT=9, OPR_LE=10, OPR_GT=11, OPR_GE=12,
-	  OPR_AND=13, OPR_OR=14,
-	  OPR_NOBINOPR=15,
-	        OPR_IDIV=16,
-			OPR_BAND=17,
-			OPR_BOR=18,
-			OPR_BXOR=19,
-			OPR_SHL=20,
-			OPR_SHR=21;
+	static final int
+			OPR_ADD=0, OPR_SUB=1, OPR_MUL=2, OPR_MOD=3, OPR_POW=4,
+			OPR_DIV=5,
+			OPR_IDIV=6,
+			OPR_BAND=7, OPR_BOR=8, OPR_BXOR=9,
+			OPR_SHL=10, OPR_SHR=11,
+			OPR_CONCAT=12,
+			OPR_EQ=13, OPR_LT=14, OPR_LE=15,
+			OPR_NE=16, OPR_GT=17, OPR_GE=18,
+			OPR_AND=19, OPR_OR=20,
+			OPR_NOBINOPR=21;
 
 	static final int 
 		OPR_MINUS=0, OPR_NOT=1, OPR_LEN=2, OPR_NOUNOPR=3,OPR_BNOT=4;
@@ -1979,13 +1977,17 @@ public class LexState extends Constants {
 	};
 	
 	static Priority[] priority = {  /* ORDER OPR */
-	   new Priority(6, 6), new Priority(6, 6), new Priority(7, 7), new Priority(7, 7), new Priority(7, 7),  /* `+' `-' `/' `%' */
-	   new Priority(10, 9), new Priority(5, 4),                 /* power and concat (right associative) */
-	   new Priority(3, 3), new Priority(3, 3),                  /* equality and inequality */
-	   new Priority(3, 3), new Priority(3, 3), new Priority(3, 3), new Priority(3, 3),  /* order */
-	   new Priority(2, 2), new Priority(1, 1),                   /* logical (and/or) */
-			new Priority(4, 4)/* // */, new Priority(4, 4)/* & */, new Priority(4, 4)/* | */, new Priority(4, 4)/* ? */,
-			new Priority(4, 4)/* << */, new Priority(4, 4)/* >> */, new Priority(4, 4)/* ~ */
+			new Priority(10, 10), new Priority(10, 10),           /* '+' '-' */
+			new Priority(11, 11), new Priority(11, 11),           /* '*' '%' */
+			new Priority(14, 13),                  /* '^' (right associative) */
+			new Priority(11, 11), new Priority(11, 11),           /* '/' '//' */
+			new Priority(6, 6), new Priority(4, 4), new Priority(5, 5),   /* '&' '|' '~' */
+			new Priority(7, 7), new Priority(7, 7),           /* '<<' '>>' */
+			new Priority(9, 8),                   /* '..' (right associative) */
+			new Priority(3, 3), new Priority(3, 3), new Priority(3, 3),   /* ==, <, <= */
+			new Priority(3, 3), new Priority(3, 3), new Priority(3, 3),   /* ~=, >, >= */
+			new Priority(2, 2), new Priority(1, 1),            /* and, or */
+			new Priority(1, 1)
 	};
 
 	static final int UNARY_PRIORITY	= 8;  /* priority for unary operators */
